@@ -1,4 +1,5 @@
 {% extends 'server_ui/templates/base.html' %}
+{% load i18n %}
 {% block title %}{{ settings.SITE_TITLE }}{% endblock %}
 
 {% block header %}
@@ -11,42 +12,42 @@
 <div class="row">&nbsp;</div>
 <div class="large-9 columns">
   {% if settings.MASTER_HELIOS %}
-<p>Helios offers <b>verifiable online elections</b>.</p>
+<p>{% blocktrans %}Helios offers <b>verifiable online elections</b>.{% endblocktrans %}</p>
 
-<p>We believe democracy is important, whether it’s your book club, parent-teacher association, student government, workers’ union, or state. So we’ve made truly verifiable elections as easy as everything else on the Web.</p>
+<p>{% blocktrans %}We believe democracy is important, whether it’s your book club, parent-teacher association, student government, workers’ union, or state. So we’ve made truly verifiable elections as easy as everything else on the Web.{% endblocktrans %}</p>
 
 <p>
-Helios elections are:
+{% trans "Helios elections are:" %}
 <ul class="disc">
-<li><b>private</b>: no one knows how you voted.</li>
-<li><b>verifiable</b>: each voter gets a tracking number.</li>
-<li><b>proven</b>: Helios is open-source, vetted by top-tier experts, and in use by major organizations.</li>
+<li><b>{% trans "private" %}</b>: {% trans "no one knows how you voted." %}</li>
+<li><b>{% trans "verifiable" %}</b>: {% trans "each voter gets a tracking number." %}</li>
+<li><b>{% trans "proven" %}</b>: {% trans "Helios is open-source, vetted by top-tier experts, and in use by major organizations." %}</li>
 </ul>
 
 <p>
-More than <b>2,000,000 votes</b> have been cast using Helios.
+{% blocktrans %}More than <b>2,000,000 votes</b> have been cast using Helios.{% endblocktrans %}
 </p>
 
 {% if create_p %}
-<a class="button" href="{% url "elections@new" %}">create an election</a>
+<a class="button" href="{% url "elections@new" %}">{% trans "create an election" %}</a>
 {% endif %}
 
   {% else %}
   <p style="font-size: 1.4em;">
     {{settings.WELCOME_MESSAGE|safe}}
   </p>
-  
+
   {% if elections|length %}
   <p>
     {% for election in elections %}
     <div class="panel">
-      <a style="font-size: 1.4em;" href="{% url "shortcut@election" election.short_name %}">{{election.name}}</a>{% if settings.SHOW_USER_INFO %}<br /> by {{election.admin.display_html_small|safe}}{% endif %}
+      <a style="font-size: 1.4em;" href="{% url "shortcut@election" election.short_name %}">{{election.name}}</a>{% if settings.SHOW_USER_INFO %}<br /> {% blocktrans with admin_display=election.admin.display_html_small|safe %}by {{ admin_display }}{% endblocktrans %}{% endif %}
     </div>
     <br />
     {% endfor %}
   </p>
   {% else %}
-  <h4>no featured elections at the moment</h4>
+  <h4>{% trans "no featured elections at the moment" %}</h4>
   {% endif %}
 {% endif %}
   
@@ -58,8 +59,8 @@ More than <b>2,000,000 votes</b> have been cast using Helios.
 {% if user %}
 <!--<div class="row right">{{user.display_html_big|safe}}</div>-->
 {% if create_p %}
-<a class="small button" href="{% url "elections@new" %}">create election</a>
-<h5 class="subheader">Administration</h5>
+<a class="small button" href="{% url "elections@new" %}">{% trans "create election" %}</a>
+<h5 class="subheader">{% trans "Administration" %}</h5>
 {% if elections_administered %}
 <ul>
 {% for election in elections_administered %}
@@ -67,15 +68,15 @@ More than <b>2,000,000 votes</b> have been cast using Helios.
 {% endfor %}
 </ul>
 {% else %}
-<em>none yet</em>
+<em>{% trans "none yet" %}</em>
 {% endif %}
 <div class="row right">
-<a class="tiny button" href="{% url "elections@administered" %}">see all</a>
+<a class="tiny button" href="{% url "elections@administered" %}">{% trans "see all" %}</a>
 </div>
 <div class="row"></div>
 {% endif %}
 
-<h5 class="subheader">Recent Votes</h5>
+<h5 class="subheader">{% trans "Recent Votes" %}</h5>
 {% if elections_voted %}
 <ul>
 {% for election in elections_voted %}
@@ -83,17 +84,17 @@ More than <b>2,000,000 votes</b> have been cast using Helios.
 {% endfor %}
 </ul>
 {% else %}
-<em>none yet</em>
+<em>{% trans "none yet" %}</em>
 {% endif %}
-<div class="row right"><a class="tiny button" href="{% url "elections@voted" %}">see all</a></div>
+<div class="row right"><a class="tiny button" href="{% url "elections@voted" %}">{% trans "see all" %}</a></div>
 <div class="row"></div>
 {% else %}
 {% if settings.SHOW_LOGIN_OPTIONS %}
-<h5>Log In to Start Voting</h5>
+<h5>{% trans "Log In to Start Voting" %}</h5>
 {{login_box|safe}}
 {% else %}
 <p>
-Select an election to start voting. You will be asked for your voting credentials after you complete a ballot.
+{% trans "Select an election to start voting. You will be asked for your voting credentials after you complete a ballot." %}
 </p>
 {% endif %}
 {% endif %}

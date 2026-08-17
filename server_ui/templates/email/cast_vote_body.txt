@@ -1,16 +1,17 @@
-Dear {{voter.name}},
+{% load i18n %}
+{% blocktrans with name=voter.name %}Dear {{ name }},{% endblocktrans %}
 
-You have successfully cast a vote in {{election.name}}.
+{% blocktrans with name=election.name %}You have successfully cast a vote in {{ name }}.{% endblocktrans %}
 
-Your ballot tracker is:
+{% trans "Your ballot tracker is:" %}
 {{cast_vote.vote_hash}}
 
-And your full encrypted ballot is archived at:
+{% trans "And your full encrypted ballot is archived at:" %}
 {{cast_vote_url}}
 
 {% if election.use_voter_aliases %}
-This election uses voter aliases to protect your privacy.
-Your voter alias is: {{voter.alias}}.
+{% trans "This election uses voter aliases to protect your privacy." %}
+{% blocktrans with alias=voter.alias %}Your voter alias is: {{ alias }}.{% endblocktrans %}
 {% endif %}
 
 --

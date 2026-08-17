@@ -1,4 +1,4 @@
-<!DOCTYPE html 
+{% load i18n %}<!DOCTYPE html
      PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
@@ -27,6 +27,15 @@
         <div id="header">
         {% block header %}
         {% endblock %}
+        <form action="{% url "set_language" %}" method="post" style="display:inline; float:right;">
+          <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+          <input type="hidden" name="next" value="{{CURRENT_URL}}" />
+          <select name="language" onchange="this.form.submit()">
+            {% get_current_language as CURRENT_LANGUAGE %}
+            <option value="en" {% if CURRENT_LANGUAGE == "en" %}selected{% endif %}>English</option>
+            <option value="es" {% if CURRENT_LANGUAGE == "es" %}selected{% endif %}>Español</option>
+          </select>
+        </form>
         </div>
       {% block content %}{% endblock %}
       <div id="footer">

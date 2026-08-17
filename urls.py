@@ -3,8 +3,11 @@ from django.conf import settings
 from django.urls import include, path, re_path
 from django.views.static import serve
 from helios import views as helios_views
+from server_ui import views as server_ui_views
 
 urlpatterns = [
+    path('i18n/setlang/', server_ui_views.set_language, name='set_language'),
+
     path('auth/', include('helios_auth.urls')),
     path('helios/', include('helios.urls')),
 

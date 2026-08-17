@@ -17,6 +17,8 @@ from django.core.paginator import Paginator
 from django.db import transaction, IntegrityError
 from django.http import HttpResponse, Http404, HttpResponseRedirect, HttpResponseForbidden, HttpResponseBadRequest
 from django.urls import reverse
+from django.utils.translation import gettext as _
+from django.utils.translation import get_language
 from django.views.decorators.http import require_http_methods
 
 import helios_auth.url_names as helios_auth_urls
@@ -86,10 +88,10 @@ def admin_autologin(request):
   
   users = User.objects.filter(admin_p=True)
   if len(users) == 0:
-    return HttpResponse("no admin users!")
+    return HttpResponse(_("no admin users!"))
 
   if len(users) == 0:
-    return HttpResponse("no users!")
+    return HttpResponse(_("no users!"))
 
   user = users[0]
   request.session['user'] = {'type' : user.user_type, 'user_id' : user.user_id}
@@ -119,7 +121,7 @@ def election_shortcut(request, election_short_name):
 # a hidden view behind the shortcut that performs the actual perm check
 @election_view()
 def _election_vote_shortcut(request, election):
-  vote_url = "%s/booth/vote.html?%s" % (settings.SECURE_URL_HOST, urlencode({'election_url' : reverse(url_names.election.ELECTION_HOME, args=[election.uuid])}))
+  vote_url = "%s/booth/vote.html?%s" % (settings.SECURE_URL_HOST, urlencode({'election_url' : reverse(url_names.election.ELECTION_HOME, args=[election.uuid]), 'lang': get_language()}))
   
   test_cookie_url = "%s?%s" % (reverse(url_names.COOKIE_TEST), urlencode({'continue_url' : vote_url}))
 
@@ -168,7 +170,7 @@ def trustee_keygenerator(request, election, trustee):
 @login_required
 def elections_administered(request):
   if not can_create_election(request):
-    return HttpResponseForbidden('only an administrator has elections to administer')
+    return HttpResponseForbidden(_('only an administrator has elections to administer'))
   
   user = get_user(request)
   elections = Election.get_by_user_as_admin(user)
@@ -186,7 +188,7 @@ def elections_voted(request):
 @login_required
 def election_new(request):
   if not can_create_election(request):
-    return HttpResponseForbidden('only an administrator can create an election')
+    return HttpResponseForbidden(_('only an administrator can create an election'))
     
   error = None
   
@@ -218,9 +220,9 @@ def election_new(request):
           election.generate_trustee(ELGAMAL_PARAMS)
           return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(url_names.election.ELECTION_VIEW, args=[election.uuid]))
         except IntegrityError:
-          error = "An election with short name %s already exists" % election_params['short_name']
+          error = _("An election with short name %(short_name)s already exists") % {'short_name': election_params['short_name']}
       else:
-        error = "No special characters allowed in the short name."
+        error = _("No special characters allowed in the short name.")
     
   return render_template(request, "election_new", {'election_form': election_form, 'error': error})
   
@@ -251,7 +253,7 @@ def one_election_edit(request, election):
         election.save()
         return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(url_names.election.ELECTION_VIEW, args=[election.uuid]))
       except IntegrityError:
-        error = "An election with short name %s already exists" % clean_data['short_name']
+        error = _("An election with short name %(short_name)s already exists") % {'short_name': clean_data['short_name']}
 
   return render_template(request, "election_edit", {'election_form' : election_form, 'election' : election, 'error': error})
 
@@ -311,7 +313,7 @@ def one_election_view(request, election):
   election_badge_url = get_election_badge_url(election)
   status_update_message = None
 
-  vote_url = "%s/booth/vote.html?%s" % (settings.SECURE_URL_HOST, urlencode({'election_url' : reverse(url_names.election.ELECTION_HOME, args=[election.uuid])}))
+  vote_url = "%s/booth/vote.html?%s" % (settings.SECURE_URL_HOST, urlencode({'election_url' : reverse(url_names.election.ELECTION_HOME, args=[election.uuid]), 'lang': get_language()}))
 
   test_cookie_url = "%s?%s" % (reverse(url_names.COOKIE_TEST), urlencode({'continue_url' : vote_url}))
   
@@ -336,13 +338,13 @@ def one_election_view(request, election):
   # status update message?
   if election.openreg:
     if election.voting_has_started:
-      status_update_message = "Vote in %s" % election.name
+      status_update_message = _("Vote in %(election_name)s") % {'election_name': election.name}
     else:
-      status_update_message = "Register to vote in %s" % election.name
+      status_update_message = _("Register to vote in %(election_name)s") % {'election_name': election.name}
 
   # result!
   if election.result:
-    status_update_message = "Results are in for %s" % election.name
+    status_update_message = _("Results are in for %(election_name)s") % {'election_name': election.name}
   
   trustees = Trustee.get_by_election(election)
 
@@ -459,7 +461,7 @@ def election_admin_add(request, election):
     if not email:
       return render_template(request, 'election_admin_add', {
         'election': election,
-        'error': 'Please enter an email address.'
+        'error': _('Please enter an email address.')
       })
 
     # Check if a specific auth type was selected (when multiple users have same email)
@@ -468,7 +470,7 @@ def election_admin_add(request, election):
       try:
         new_admin = User.objects.get(user_id=email, user_type=selected_auth_type)
       except User.DoesNotExist:
-        raise Http404("User not found")
+        raise Http404(_("User not found"))
     else:
       # Find users by email - they must have logged in to Helios at least once
       # Note: same email can exist across multiple auth systems (google, facebook, etc.)
@@ -477,7 +479,7 @@ def election_admin_add(request, election):
       if not matching_users:
         return render_template(request, 'election_admin_add', {
           'election': election,
-          'error': 'No user found with that email. They must log in to Helios at least once before being added as an administrator.'
+          'error': _('No user found with that email. They must log in to Helios at least once before being added as an administrator.')
         })
 
       if len(matching_users) > 1:
@@ -494,14 +496,14 @@ def election_admin_add(request, election):
     if new_admin == election.admin:
       return render_template(request, 'election_admin_add', {
         'election': election,
-        'error': 'This user is already the election creator.'
+        'error': _('This user is already the election creator.')
       })
 
     # Check if already an admin
     if election.admins.filter(pk=new_admin.pk).exists():
       return render_template(request, 'election_admin_add', {
         'election': election,
-        'error': 'This user is already an administrator.'
+        'error': _('This user is already an administrator.')
       })
 
     # Add the new admin
@@ -522,24 +524,24 @@ def election_admin_remove(request, election):
   current_user = get_user(request)
 
   if not user_email or not user_type:
-    raise Http404("No user specified")
+    raise Http404(_("No user specified"))
 
   try:
     admin_to_remove = User.objects.get(user_id=user_email, user_type=user_type)
   except User.DoesNotExist:
-    raise Http404("User not found")
+    raise Http404(_("User not found"))
 
   # Cannot remove the original creator
   if admin_to_remove == election.admin:
-    return HttpResponseForbidden("Cannot remove the election creator.")
+    return HttpResponseForbidden(_("Cannot remove the election creator."))
 
   # Cannot remove yourself
   if admin_to_remove == current_user:
-    return HttpResponseForbidden("You cannot remove yourself as an administrator.")
+    return HttpResponseForbidden(_("You cannot remove yourself as an administrator."))
 
   # Check if this user is actually an admin
   if not election.admins.filter(pk=admin_to_remove.pk).exists():
-    raise Http404("User is not an administrator of this election")
+    raise Http404(_("User is not an administrator of this election"))
 
   if request.method == "GET":
     return render_template(request, 'election_admin_remove', {
@@ -563,8 +565,8 @@ def trustee_login(request, election_short_name, trustee_email, trustee_secret):
         set_logged_in_trustee(request, trustee)
         return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(url_names.election.ELECTION_TRUSTEE_HOME, args=[election.uuid, trustee.uuid]))
     # bad secret or no such trustee
-    raise Http404("Trustee not recognized.")
-  raise Http404("No election {} found.".format(election_short_name))
+    raise Http404(_("Trustee not recognized."))
+  raise Http404(_("No election %(election_short_name)s found.") % {'election_short_name': election_short_name})
 
 @election_admin()
 def trustee_send_url(request, election, trustee_uuid):
@@ -572,19 +574,19 @@ def trustee_send_url(request, election, trustee_uuid):
   
   url = settings.SECURE_URL_HOST + reverse(url_names.TRUSTEE_LOGIN, args=[election.short_name, trustee.email, trustee.secret])
   
-  body = """
+  body = _("""
 
-You are a trustee for %s.
+You are a trustee for %(election_name)s.
 
 Your trustee dashboard is at
 
-  %s
-  
---
-Helios  
-""" % (election.name, url)
+  %(url)s
 
-  utils.send_email(settings.SERVER_EMAIL, ["%s <%s>" % (trustee.name, trustee.email)], 'your trustee homepage for %s' % election.name, body)
+--
+Helios
+""") % {'election_name': election.name, 'url': url}
+
+  utils.send_email(settings.SERVER_EMAIL, ["%s <%s>" % (trustee.name, trustee.email)], _('your trustee homepage for %(election_name)s') % {'election_name': election.name}, body)
 
   logging.info("URL %s " % url)
   return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(url_names.election.ELECTION_TRUSTEES_VIEW, args = [election.uuid]))
@@ -615,7 +617,7 @@ def trustee_upload_pk(request, election, trustee):
     
     # send a note to admin
     try:
-      election.admin.send_message("%s - trustee pk upload" % election.name, "trustee %s (%s) uploaded a pk." % (trustee.name, trustee.email))
+      election.admin.send_message(_("%(election_name)s - trustee pk upload") % {'election_name': election.name}, _("trustee %(trustee_name)s (%(trustee_email)s) uploaded a pk.") % {'trustee_name': trustee.name, 'trustee_email': trustee.email})
     except:
       # oh well, no message sent
       pass
@@ -744,7 +746,7 @@ def password_voter_resend(request, election):
   if not VOTERS_EMAIL:
     return render_template(request, 'password_voter_resend', {
       'election': election,
-      'error': 'Email sending is not enabled on this server.'
+      'error': _('Email sending is not enabled on this server.')
     })
 
   can_send, reason = election.can_send_voter_emails()
@@ -769,7 +771,7 @@ def password_voter_resend(request, election):
     return render_template(request, 'password_voter_resend', {
       'election': election,
       'resend_form': resend_form,
-      'error': 'Please enter a valid voter ID.'
+      'error': _('Please enter a valid voter ID.')
     })
 
   voter_id = resend_form.cleaned_data['voter_id'].strip()
@@ -1067,18 +1069,18 @@ def voter_delete(request, election, voter_uuid):
     if voter.vote_hash:
       # send email to voter
       election_url = get_election_url(election)
-      subject = "Your vote has been removed - %s" % election.name
-      body = """
+      subject = _("Your vote has been removed - %(election_name)s") % {'election_name': election.name}
+      body = _("""
 Your vote has been removed by an election administrator.
 
-Election: %s
-Election URL: %s
+Election: %(election_name)s
+Election URL: %(election_url)s
 
 If you believe this was done in error, please contact the election administrator.
 
 --
 Helios
-""" % (election.name, election_url)
+""") % {'election_name': election.name, 'election_url': election_url}
       voter.send_message(subject, body)
 
       # log it
@@ -1231,7 +1233,7 @@ def _register_voter(election, user):
 @election_view()
 def one_election_register(request, election):
   if not election.openreg:
-    return HttpResponseForbidden('registration is closed for this election')
+    return HttpResponseForbidden(_('registration is closed for this election'))
     
   check_csrf(request)
     
@@ -1342,7 +1344,7 @@ def trustee_upload_decryption(request, election, trustee_uuid):
     
     try:
       # send a note to admin
-      election.admin.send_message("%s - trustee partial decryption" % election.name, "trustee %s (%s) did their partial decryption." % (trustee.name, trustee.email))
+      election.admin.send_message(_("%(election_name)s - trustee partial decryption") % {'election_name': election.name}, _("trustee %(trustee_name)s (%(trustee_email)s) did their partial decryption.") % {'trustee_name': trustee.name, 'trustee_email': trustee.email})
     except:
       # ah well
       pass
@@ -1526,17 +1528,17 @@ def voters_download_csv(request, election):
   # Write headers based on what's visible to the user
   headers = []
   if admin_p:
-    headers.extend(['Login', 'Email Address'])
-  
+    headers.extend([_('Login'), _('Email Address')])
+
   if admin_p or not election.use_voter_aliases:
-    headers.append('Name')
-    headers.append('Voter Type')
-  
+    headers.append(_('Name'))
+    headers.append(_('Voter Type'))
+
   if election.use_voter_aliases:
-    headers.append('Alias')
-  
-  headers.append('Smart Ballot Tracker')
-  headers.append('Vote Cast At')
+    headers.append(_('Alias'))
+
+  headers.append(_('Smart Ballot Tracker'))
+  headers.append(_('Vote Cast At'))
   
   writer.writerow(headers)
   
@@ -1581,7 +1583,7 @@ def election_log_download_csv(request, election):
   writer = csv.writer(response)
 
   # Write header row
-  writer.writerow(['Timestamp', 'Event'])
+  writer.writerow([_('Timestamp'), _('Event')])
 
   # Write log entries
   for log in logs:
@@ -1697,10 +1699,10 @@ def voters_email(request, election):
     return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(url_names.election.ELECTION_VIEW, args=[election.uuid]))
 
   TEMPLATES = [
-    ('vote', 'Time to Vote'),
-    ('simple', 'Simple'),
-    ('info', 'Additional Info'),
-    ('result', 'Election Result')
+    ('vote', _('Time to Vote')),
+    ('simple', _('Simple')),
+    ('info', _('Additional Info')),
+    ('result', _('Election Result'))
     ]
 
   template = request.GET.get('template', 'vote')
@@ -1875,48 +1877,48 @@ def optout_form(request):
     if request.method == "GET":
         return render_template(request, 'optout_form', {
             'action': 'optout',
-            'title': 'Opt Out of Helios Emails',
-            'description': 'Enter your email address to stop receiving all emails from Helios voting system.'
+            'title': _('Opt Out of Helios Emails'),
+            'description': _('Enter your email address to stop receiving all emails from Helios voting system.')
         })
-    
+
     # POST: Process opt-out request
     email = request.POST.get('email', '').strip()
-    
+
     if not email:
         return render_template(request, 'optout_form', {
             'action': 'optout',
-            'title': 'Opt Out of Helios Emails',
-            'description': 'Enter your email address to stop receiving all emails from Helios voting system.',
-            'error': 'Email address is required'
+            'title': _('Opt Out of Helios Emails'),
+            'description': _('Enter your email address to stop receiving all emails from Helios voting system.'),
+            'error': _('Email address is required')
         })
-    
+
     if not validate_email(email):
         return render_template(request, 'optout_form', {
             'action': 'optout',
-            'title': 'Opt Out of Helios Emails',
-            'description': 'Enter your email address to stop receiving all emails from Helios voting system.',
-            'error': 'Invalid email address'
+            'title': _('Opt Out of Helios Emails'),
+            'description': _('Enter your email address to stop receiving all emails from Helios voting system.'),
+            'error': _('Invalid email address')
         })
-    
+
     # Generate confirmation code
     confirmation_code = utils.generate_email_confirmation_code(email, 'optout')
-    
+
     # Send confirmation email
-    subject = "Confirm your opt-out from Helios emails"
+    subject = _("Confirm your opt-out from Helios emails")
     confirmation_path = reverse('optout_confirm', kwargs={'email': email, 'code': confirmation_code})
     confirmation_url = request.build_absolute_uri(confirmation_path)
-    
-    body = f"""
+
+    body = _("""
 Please confirm that you want to opt out of all Helios voting system emails.
 
-Click this link to confirm: {confirmation_url}
+Click this link to confirm: %(confirmation_url)s
 
 If you did not request this, please ignore this email.
 
 --
 Helios Voting System
-"""
-    
+""") % {'confirmation_url': confirmation_url}
+
     try:
         send_mail(
             subject,
@@ -1929,9 +1931,9 @@ Helios Voting System
     except Exception as e:
         return render_template(request, 'optout_form', {
             'action': 'optout',
-            'title': 'Opt Out of Helios Emails',
-            'description': 'Enter your email address to stop receiving all emails from Helios voting system.',
-            'error': f'Failed to send confirmation email: {str(e)}'
+            'title': _('Opt Out of Helios Emails'),
+            'description': _('Enter your email address to stop receiving all emails from Helios voting system.'),
+            'error': _('Failed to send confirmation email: %(error)s') % {'error': str(e)}
         })
 
 
@@ -1940,8 +1942,8 @@ def optout_success(request):
     """Show opt-out success page"""
     return render_template(request, 'optout_success', {
         'action': 'optout',
-        'title': 'Opt-Out Confirmation Sent',
-        'message': 'We have sent you a confirmation email. Please click the link in the email to complete your opt-out request.'
+        'title': _('Opt-Out Confirmation Sent'),
+        'message': _('We have sent you a confirmation email. Please click the link in the email to complete your opt-out request.')
     })
 
 
@@ -1949,14 +1951,14 @@ def optout_success(request):
 def optout_confirm(request, email, code):
     """Confirm opt-out with HMAC verification"""
     if not utils.verify_email_confirmation_code(email, 'optout', code):
-        raise Http404("Invalid confirmation link")
+        raise Http404(_("Invalid confirmation link"))
 
     if request.method == "GET":
         # Show confirmation form
         return render_template(request, 'optout_confirm_form', {
             'action': 'optout',
-            'title': 'Confirm Opt-Out',
-            'description': 'Please confirm that you want to opt out of all Helios voting system emails.',
+            'title': _('Confirm Opt-Out'),
+            'description': _('Please confirm that you want to opt out of all Helios voting system emails.'),
             'email': email
         })
 
@@ -1971,8 +1973,8 @@ def optout_confirm(request, email, code):
 
     return render_template(request, 'optout_confirmed', {
         'action': 'optout',
-        'title': 'Successfully Opted Out',
-        'message': f'The email address {email} has been successfully opted out of all Helios emails.',
+        'title': _('Successfully Opted Out'),
+        'message': _('The email address %(email)s has been successfully opted out of all Helios emails.') % {'email': email},
         'email': email
     })
 
@@ -1983,52 +1985,52 @@ def optin_form(request):
     if request.method == "GET":
         return render_template(request, 'optout_form', {
             'action': 'optin',
-            'title': 'Opt Back Into Helios Emails',
-            'description': 'Enter your email address to resume receiving emails from Helios voting system.'
+            'title': _('Opt Back Into Helios Emails'),
+            'description': _('Enter your email address to resume receiving emails from Helios voting system.')
         })
-    
+
     # POST: Process opt-in request
     email = request.POST.get('email', '').strip()
-    
+
     if not email:
         return render_template(request, 'optout_form', {
             'action': 'optin',
-            'title': 'Opt Back Into Helios Emails',
-            'description': 'Enter your email address to resume receiving emails from Helios voting system.',
-            'error': 'Email address is required'
+            'title': _('Opt Back Into Helios Emails'),
+            'description': _('Enter your email address to resume receiving emails from Helios voting system.'),
+            'error': _('Email address is required')
         })
-    
+
     if not validate_email(email):
         return render_template(request, 'optout_form', {
             'action': 'optin',
-            'title': 'Opt Back Into Helios Emails',
-            'description': 'Enter your email address to resume receiving emails from Helios voting system.',
-            'error': 'Invalid email address'
+            'title': _('Opt Back Into Helios Emails'),
+            'description': _('Enter your email address to resume receiving emails from Helios voting system.'),
+            'error': _('Invalid email address')
         })
-    
+
     # Check if email is actually opted out
     if not EmailOptOut.is_opted_out(email):
         return render_template(request, 'optout_not_opted_out', {'email': email})
-    
+
     # Generate confirmation code
     confirmation_code = utils.generate_email_confirmation_code(email, 'optin')
-    
+
     # Send confirmation email
-    subject = "Confirm your opt-in to Helios emails"
+    subject = _("Confirm your opt-in to Helios emails")
     confirmation_path = reverse('optin_confirm', kwargs={'email': email, 'code': confirmation_code})
     confirmation_url = request.build_absolute_uri(confirmation_path)
-    
-    body = f"""
+
+    body = _("""
 Please confirm that you want to opt back in to Helios voting system emails.
 
-Click this link to confirm: {confirmation_url}
+Click this link to confirm: %(confirmation_url)s
 
 If you did not request this, please ignore this email.
 
 --
 Helios Voting System
-"""
-    
+""") % {'confirmation_url': confirmation_url}
+
     try:
         send_mail(
             subject,
@@ -2041,9 +2043,9 @@ Helios Voting System
     except Exception as e:
         return render_template(request, 'optout_form', {
             'action': 'optin',
-            'title': 'Opt Back Into Helios Emails',
-            'description': 'Enter your email address to resume receiving emails from Helios voting system.',
-            'error': f'Failed to send confirmation email: {str(e)}'
+            'title': _('Opt Back Into Helios Emails'),
+            'description': _('Enter your email address to resume receiving emails from Helios voting system.'),
+            'error': _('Failed to send confirmation email: %(error)s') % {'error': str(e)}
         })
 
 
@@ -2052,8 +2054,8 @@ def optin_success(request):
     """Show opt-in success page"""
     return render_template(request, 'optout_success', {
         'action': 'optin',
-        'title': 'Opt-In Confirmation Sent',
-        'message': 'We have sent you a confirmation email. Please click the link in the email to complete your opt-in request.'
+        'title': _('Opt-In Confirmation Sent'),
+        'message': _('We have sent you a confirmation email. Please click the link in the email to complete your opt-in request.')
     })
 
 
@@ -2061,7 +2063,7 @@ def optin_success(request):
 def optin_confirm(request, email, code):
     """Confirm opt-in with HMAC verification"""
     if not utils.verify_email_confirmation_code(email, 'optin', code):
-        raise Http404("Invalid confirmation link")
+        raise Http404(_("Invalid confirmation link"))
 
     if request.method == "GET":
         # Check if email is actually opted out before showing the form
@@ -2071,8 +2073,8 @@ def optin_confirm(request, email, code):
         # Show confirmation form
         return render_template(request, 'optout_confirm_form', {
             'action': 'optin',
-            'title': 'Confirm Opt-In',
-            'description': 'Please confirm that you want to resume receiving emails from Helios voting system.',
+            'title': _('Confirm Opt-In'),
+            'description': _('Please confirm that you want to resume receiving emails from Helios voting system.'),
             'email': email
         })
 
@@ -2087,8 +2089,8 @@ def optin_confirm(request, email, code):
 
     return render_template(request, 'optout_confirmed', {
         'action': 'optin',
-        'title': 'Successfully Opted Back In',
-        'message': f'The email address {email} has been successfully opted back in to Helios emails.',
+        'title': _('Successfully Opted Back In'),
+        'message': _('The email address %(email)s has been successfully opted back in to Helios emails.') % {'email': email},
         'email': email
     })
 

@@ -1,10 +1,11 @@
 {% extends TEMPLATE_BASE %}
-
+{% load i18n %}
 {% block title %}{{cast_vote.vote_tinyhash}} &mdash; {{election.name}}{% endblock %}
 {% block content %}
-<h2 class="title">Cast Vote {{cast_vote.vote_tinyhash}}</h2>
-cast in <a href="{% url "election@view" election.uuid %}">{{election.name}}</a><br />
-Fingerprint: <tt>{{cast_vote.vote_hash}}</tt><br />
+<h2 class="title">{% blocktrans with vote_tinyhash=cast_vote.vote_tinyhash %}Cast Vote {{vote_tinyhash}}{% endblocktrans %}</h2>
+{% url "election@view" election.uuid as election_view_url %}
+{% blocktrans with election_name=election.name %}cast in <a href="{{election_view_url}}">{{election_name}}</a>{% endblocktrans %}<br />
+{% trans "Fingerprint:" %} <tt>{{cast_vote.vote_hash}}</tt><br />
 by <b><u>
 {% if the_voter.alias %}
 {{the_voter.alias}}
@@ -13,7 +14,7 @@ by <b><u>
 {% endif %}
 </u></b>
 <br /><br />
-<a href="#" onclick="$('#castvote_content').slideToggle(250); return false;">details</a><br /><br />
+<a href="#" onclick="$('#castvote_content').slideToggle(250); return false;">{% trans "details" %}</a><br /><br />
 <div style="display:none;" id="castvote_content">
 <textarea cols="100" rows="10">
 {{vote_content}}

@@ -52,7 +52,10 @@ DATABASES = {
 # override if we have an env variable
 if get_from_env('DATABASE_URL', None):
     import dj_database_url
-    DATABASES['default'] = dj_database_url.config(conn_max_age=600, ssl_require=True)
+    DATABASES['default'] = dj_database_url.config(
+        conn_max_age=600,
+        ssl_require=(get_from_env('DATABASE_SSL_REQUIRE', '1') == '1'),
+    )
     DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
 
 # explicitly set the default auto-created primary field to silence warning models.W042
@@ -69,13 +72,25 @@ USE_TZ = False
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = get_from_env('LANGUAGE_CODE', 'en')
 
 SITE_ID = 1
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
 USE_I18N = True
+
+# Languages available for voters/admins to pick via the language switcher.
+# Language is chosen per-session/cookie (LocaleMiddleware), not via URL
+# prefix, so existing election cast_urls are unaffected.
+LANGUAGES = [
+    ('en', 'English'),
+    ('es', 'Español'),
+]
+
+LOCALE_PATHS = [
+    os.path.join(os.path.dirname(__file__), 'locale'),
+]
 
 # Absolute path to the directory that holds media.
 # Example: "/home/media/media.lawrence.com/"
@@ -164,8 +179,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # 'django.middleware.csrf.CsrfViewMiddleware',
 
-    'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
+    'django.middleware.common.CommonMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
 ]
 
@@ -185,7 +201,10 @@ TEMPLATES = [
             # os.path.join(ROOT_PATH, 'server_ui/templates'),  # covered by APP_DIRS:True
         ],
         'OPTIONS': {
-            'debug': DEBUG
+            'debug': DEBUG,
+            'context_processors': [
+                'django.template.context_processors.i18n',
+            ],
         }
     },
 ]
@@ -209,6 +228,7 @@ if DEBUG and get_from_env('EMAIL_USE_CONSOLE', '0') == '1':
 
 ANYMAIL = {
     "MAILGUN_API_KEY": get_from_env('MAILGUN_API_KEY', None),
+    "MAILGUN_SENDER_DOMAIN": get_from_env('MAILGUN_SENDER_DOMAIN', None),
 }
 
 # Mailgun overrides console backend if configured

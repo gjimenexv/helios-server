@@ -5,11 +5,13 @@ server_ui specific views
 import copy
 
 from django.conf import settings
+from django.http import HttpResponseRedirect
+from django.utils.http import url_has_allowed_host_and_scheme
 
 import helios_auth.views as auth_views
 from helios.models import Election
 from helios.security import can_create_election
-from helios_auth.security import get_user
+from helios_auth.security import check_csrf, get_user
 from . import glue
 from .view_utils import render_template
 
@@ -60,4 +62,30 @@ def faq(request):
 
 def privacy(request):
   return render_template(request, "privacy")
-    
+
+
+def set_language(request):
+  check_csrf(request)
+
+  language_code = request.POST.get('language')
+  next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or '/'
+
+  if not url_has_allowed_host_and_scheme(url=next_url, allowed_hosts={request.get_host()},
+                                          require_https=request.is_secure()):
+    next_url = '/'
+
+  response = HttpResponseRedirect(next_url)
+
+  if language_code and language_code in dict(settings.LANGUAGES):
+    response.set_cookie(
+      settings.LANGUAGE_COOKIE_NAME, language_code,
+      max_age=settings.LANGUAGE_COOKIE_AGE,
+      path=settings.LANGUAGE_COOKIE_PATH,
+      domain=settings.LANGUAGE_COOKIE_DOMAIN,
+      secure=settings.LANGUAGE_COOKIE_SECURE,
+      httponly=settings.LANGUAGE_COOKIE_HTTPONLY,
+      samesite=settings.LANGUAGE_COOKIE_SAMESITE,
+    )
+
+  return response
+

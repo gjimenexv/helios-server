@@ -909,7 +909,7 @@ class ElectionBlackboxTests(WebTest):
                 self.assertContains(cast_confirm_page, "requires election-specific credentials")
 
             # set the form
-            login_form = cast_confirm_page.form
+            login_form = cast_confirm_page.forms['password_voter_login_form']
             login_form['voter_id'] = username
             login_form['password'] = password
 
@@ -919,7 +919,7 @@ class ElectionBlackboxTests(WebTest):
             self.assertContains(cast_confirm_page, "CAST this ballot")
 
             # confirm the vote, now with the actual form
-            cast_form = cast_confirm_page.form
+            cast_form = cast_confirm_page.forms['cast_confirm_form']
         
             if 'status_update' in list(cast_form.fields.keys()):
                 cast_form['status_update'] = False
@@ -943,7 +943,7 @@ class ElectionBlackboxTests(WebTest):
 
             # if we redirected, that's because we can see the page, I think
             if login_page.status_int != 302:
-                login_form = login_page.form
+                login_form = login_page.forms['password_voter_login_form']
                 
                 # try with extra spaces
                 login_form['voter_id'] = '  ' + username + '   '
@@ -1023,7 +1023,7 @@ class ElectionBlackboxTests(WebTest):
         # ensure it redirects
         self.assertRedirects(response, "/helios/elections/%s/password_voter_login?%s" % (election_id, urlencode({"return_url": "/helios/elections/%s/view" % election_id})))
 
-        login_form = response.follow().form
+        login_form = response.follow().forms['password_voter_login_form']
 
         login_form['voter_id'] = username
         login_form['password'] = password

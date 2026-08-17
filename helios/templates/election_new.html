@@ -1,22 +1,23 @@
 {% extends TEMPLATE_BASE %}
+{% load i18n %}
 
 {% block content %}
 
-  <h2 class="title">Create a New Election</h2>
-  
+  <h2 class="title">{% trans "Create a New Election" %}</h2>
+
 {% if error %}
 <p style="color: red;">
     {{error}}
 </p>
 {% endif %}
-  
+
   <form class="prettyform" action="" method="POST" id="create_election_form">
     <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
     <table class="pretty">
      {{election_form.as_table}}
      </table>
   <div>
-  <label for="">&nbsp;</label><input class="button" type="submit" value="Next &gt;&gt;" id="next_button" />
+  <label for="">&nbsp;</label><input class="button" type="submit" value="{% trans "Next >>" %}" id="next_button" />
   </div>
   </form>
 
