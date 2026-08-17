@@ -141,13 +141,18 @@ def string_to_datetime(str, fmt="%Y-%m-%d %H:%M"):
 ## email
 ##
 
+import logging
+
 from django.core import mail as django_mail
 
 def send_email(sender, recpt_lst, subject, body):
   # subject up until the first newline
   subject = subject.split("\n")[0]
 
-  django_mail.send_mail(subject, body, sender, recpt_lst, fail_silently=True)
+  try:
+    django_mail.send_mail(subject, body, sender, recpt_lst, fail_silently=False)
+  except Exception:
+    logging.exception("Failed to send email to %s", recpt_lst)
 
   
 ##

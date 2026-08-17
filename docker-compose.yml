@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  broker:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save "" --maxmemory 64mb --maxmemory-policy noeviction
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    restart: unless-stopped
+    command: gunicorn wsgi:application -b 0.0.0.0:8000 -w 2
+    env_file: ${ENV_FILE:-.env}
+    ports:
+      - "80:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: celery --app helios worker --events --beat --concurrency 1
+    env_file: ${ENV_FILE:-.env}
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+
+volumes:
+  pgdata:
