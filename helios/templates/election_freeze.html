@@ -1,43 +1,59 @@
 {% extends TEMPLATE_BASE %}
 {% load i18n %}
+
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
-  <h2 class="title">{{election.name}} &mdash; {% trans "Freeze Ballot" %}</h2>
-<p>
-{% trans "Once an election is frozen, the questions, options, and trustees can no longer be modified." %}<br />
-</p>
+<div class="civic-sheet civic-console civic-enter">
 
-<p>
-{% if election.openreg %}
-{% blocktrans %}Registration for your election is currently <b>open</b>, which means anyone can vote, even after you freeze the ballot.{% endblocktrans %}
-{% else %}
-{% blocktrans %}Registration for your election is currently <b>closed</b>, which means only the voters you designate will be able to cast a ballot. As the administrator, you will still be able to modify that voter list as the election progresses.{% endblocktrans %}
-{% endif %}
-</p>
+  {% trans "Freeze Ballot" as section %}
+  {% trans "back to the election" as back_label %}
+  {% url "election@view" election.uuid as back_url %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
 
-{% if helios.VOTERS_EMAIL %}
-<p>
-{% trans "You must freeze the ballot before you can contact voters." %}
-</p>
-{% endif %}
+  <!-- Freezing is the one irreversible step in setting up an election, so it
+       gets a warning banner rather than a line of body copy. -->
+  <div class="civic-banner civic-banner--warn">
+    <p>{% trans "Once an election is frozen, the questions, options, and trustees can no longer be modified." %}</p>
+  </div>
 
-{% if issues_p %}
-<p>
-    {% trans "Before you can freeze the election, you will need to:" %}
-    <ul>
-        {% for issue in issues %}
-        <li>{{issue.action}}</li>
-        {% endfor %}
-    </ul>
-    <a href="{% url "election@view" election.uuid %}">{% trans "go back to the election" %}</a>
-</p>
-{% else %}
-<form method="post" action="">
-<input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+  <p class="civic-lede">
+  {% if election.openreg %}
+  {% blocktrans %}Registration for your election is currently <b>open</b>, which means anyone can vote, even after you freeze the ballot.{% endblocktrans %}
+  {% else %}
+  {% blocktrans %}Registration for your election is currently <b>closed</b>, which means only the voters you designate will be able to cast a ballot. As the administrator, you will still be able to modify that voter list as the election progresses.{% endblocktrans %}
+  {% endif %}
+  </p>
 
-<input class="button" type="submit" value="{% trans "Freeze the ballot" %}" />
-<button class="button" onclick="document.location='{% url "election@view" election.uuid %}'; return false;">{% trans "do NOT freeze yet" %}</button>
-</form>
-{% endif %}
+  {% if helios.VOTERS_EMAIL %}
+  <p class="civic-note">{% trans "You must freeze the ballot before you can contact voters." %}</p>
+  {% endif %}
 
-<br /><br />
+  {% if issues_p %}
+
+  <p class="civic-section">{% trans "Before you can freeze the election, you will need to:" %}</p>
+  <ul class="civic-checklist">
+  {% for issue in issues %}
+    <li>{{issue.action}}</li>
+  {% endfor %}
+  </ul>
+  <div class="civic-actions">
+    <a class="civic-btn civic-btn--quiet" href="{% url "election@view" election.uuid %}">{% trans "go back to the election" %}</a>
+  </div>
+
+  {% else %}
+
+  <form method="post" action="">
+  <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+  <div class="civic-actions">
+    <button type="submit" class="civic-btn civic-btn--primary civic-btn--cast">{% trans "Freeze the ballot" %}</button>
+    <a class="civic-btn civic-btn--quiet" href="{% url "election@view" election.uuid %}">{% trans "do NOT freeze yet" %}</a>
+  </div>
+  </form>
+
+  {% endif %}
+
+</div>
 {% endblock %}

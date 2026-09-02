@@ -2,55 +2,69 @@
 {% load i18n %}
 {% block title %}{% blocktrans with election_name=election.name %}Add Administrator - {{election_name}}{% endblocktrans %}{% endblock %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
-  <h3 class="title">{{election.name}} &mdash; {% trans "Add Administrator" %} <span style="font-size:0.7em;">[<a href="{% url "election@admins" election.uuid %}">{% trans "cancel" %}</a>]</span></h3>
+<div class="civic-sheet civic-console civic-enter">
+
+  {% trans "Add Administrator" as section %}
+  {% trans "cancel" as back_label %}
+  {% url "election@admins" election.uuid as back_url %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
 
 {% if matching_users %}
-<p>
-    {% blocktrans %}Multiple users were found with the email <strong>{{email}}</strong>. Please select which one to add:{% endblocktrans %}
-</p>
 
-<form method="post" action="">
-<input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-<input type="hidden" name="email" value="{{email}}" />
-<ul>
-{% for user in matching_users %}
-<li>
-  <label>
-    <input type="radio" name="auth_type" value="{{user.user_type}}" {% if forloop.first %}checked{% endif %} />
-    {{user.display_html_small|safe}} ({{user.user_type}})
-  </label>
-</li>
-{% endfor %}
-</ul>
-<br />
-<input class="button" type="submit" value="{% trans "Add Selected Administrator" %}" />
-</form>
+  <p class="civic-lede">
+    {% blocktrans %}Multiple users were found with the email <strong>{{email}}</strong>. Please select which one to add:{% endblocktrans %}
+  </p>
+
+  <form method="post" action="">
+  <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+  <input type="hidden" name="email" value="{{email}}" />
+  <ul class="civic-choices">
+  {% for user in matching_users %}
+    <li>
+      <input type="radio" id="auth_type_{{forloop.counter}}" name="auth_type" value="{{user.user_type}}" {% if forloop.first %}checked{% endif %} />
+      <label for="auth_type_{{forloop.counter}}">{{user.display_html_small|safe}} ({{user.user_type}})</label>
+    </li>
+  {% endfor %}
+  </ul>
+  <div class="civic-actions">
+    <button type="submit" class="civic-btn civic-btn--primary">{% trans "Add Selected Administrator" %}</button>
+  </div>
+  </form>
 
 {% else %}
 
-<p>
+  <p class="civic-lede">
     {% blocktrans %}Add another administrator to this election. The new administrator will have the same privileges as you,
     including the ability to manage voters, questions, trustees, and other settings.{% endblocktrans %}
-</p>
+  </p>
 
-<p>
+  <p class="civic-note">
     <em>{% trans "Note: The user must have logged in to Helios at least once before they can be added as an administrator." %}</em>
-</p>
+  </p>
 
-{% if error %}
-<p style="color: red; font-weight: bold;">
-  {{error}}
-</p>
+  {% if error %}
+  <div class="civic-banner civic-banner--stop"><p>{{error}}</p></div>
+  {% endif %}
+
+  <div class="civic-panel">
+    <form class="civic-form" method="post" action="">
+    <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+    <p>
+      <label for="admin_email">{% trans "Email:" %}</label>
+      <input type="text" id="admin_email" name="email" size="60" />
+    </p>
+    <div class="civic-actions" style="margin-bottom:0;">
+      <button type="submit" class="civic-btn civic-btn--primary">{% trans "Add Administrator" %}</button>
+    </div>
+    </form>
+  </div>
+
 {% endif %}
 
-<form method="post" action="">
-<input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-{% trans "Email:" %} <input type="text" name="email" size="60" /><br /><br />
-
-<input class="button" type="submit" value="{% trans "Add Administrator" %}" />
-</form>
-
-{% endif %}
-
+</div>
 {% endblock %}

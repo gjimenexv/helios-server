@@ -2,6 +2,11 @@
 {% load i18n %}
 
 {% block title %}{% blocktrans with election_name=election.name %}Contact Voters for {{ election_name }}{% endblocktrans %}{% endblock %}
+
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
 <script>
 var voter_id = null;
@@ -10,57 +15,65 @@ voter_id = '{{voter.voter_id}}';
 {% endif %}
 </script>
 
-  <h2 class="title">{{election.name}} &mdash; {% trans "Contact Voters" %} <span style="font-size:0.7em;">[<a href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>]</span></h2>
+<div class="civic-sheet civic-console civic-enter">
 
-{% if voter %}
-  <p>
-    {% blocktrans with voter_name=voter.name voter_id=voter.voter_id %}You are sending this email to a specific user: <b>{{ voter_name }} ({{ voter_id }})</b>{% endblocktrans %}
+  {% trans "Contact Voters" as section %}
+  {% trans "back to election" as back_label %}
+  {% url "election@view" election.uuid as back_url %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
+
+  {% if voter %}
+  <div class="civic-banner">
+    <p>{% blocktrans with voter_name=voter.name voter_id=voter.voter_id %}You are sending this email to a specific user: <b>{{ voter_name }} ({{ voter_id }})</b>{% endblocktrans %}</p>
+  </div>
+  {% endif %}
+
+  <!-- The template switcher reads as a set of tabs, since picking one reloads
+       the preview below it. -->
+  <p class="civic-section">{% trans "Templates" %}</p>
+  <nav class="civic-index">
+  {% for template_option in templates %}
+    {% if template_option.0 == template %}
+    <a href="?template={{template_option.0}}&voter_id={{voter.voter_login_id}}" style="background:var(--paper-raised); color:var(--accent); font-weight:700;">{{template_option.1}}</a>
+    {% else %}
+    <a href="?template={{template_option.0}}&voter_id={{voter.voter_login_id}}">{{template_option.1}}</a>
+    {% endif %}
+  {% endfor %}
+  </nav>
+
+  <pre class="civic-pre">{% trans "Subject:" %} {{default_subject}}
+
+{{default_body|safe}}</pre>
+
+  <p class="civic-note">
+  {% trans "You may tweak the subject and add a custom message using the form below." %}
   </p>
-{% endif %}
 
-<p>
-<b>{% trans "Templates" %}</b>:
-
-{% for template_option in templates %}
-{% if template_option.0 == template %}
-<b>{{template_option.1}}</b>
-{% else %}
-<a href="?template={{template_option.0}}&voter_id={{voter.voter_login_id}}">{{template_option.1}}</a>
-{% endif %}
-&nbsp;&nbsp;&nbsp;
-{% endfor %}
-
-<pre style="margin:10px; border: 1px solid #888; padding:20px">
-{% trans "Subject:" %} {{default_subject}}
-
-{{default_body|safe}}
-</pre>
-
-<p>
-{% trans "You may tweak the subject and add a custom message using the form below." %}
-</p>
-
-  <form class="prettyform" action="" method="POST" id="email_form">
+  <div class="civic-panel">
+    <form action="" method="POST" id="email_form">
     <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
     <input type="hidden" name="template" value="{{template}}" />
     <input type="hidden" name="voter_id" value="{{voter.voter_login_id}}" />
-    <table class="pretty">
-     {{email_form.as_table}}
-     </table>
-  <div>
-  <label for="">&nbsp;</label><input type="submit" value="{% trans "Send" %}" id="send_button" class="button" />
+    <table class="civic-formtable">{{email_form.as_table}}</table>
+    <div class="civic-actions" style="margin-bottom:0;">
+      <button type="submit" class="civic-btn civic-btn--primary" id="send_button">{% trans "Send" %}</button>
+    </div>
+    </form>
   </div>
-  </form>
 
-  <div id="processing">
-  </div>
+  <div id="processing"></div>
 
   <div id="done" style="display:none;">
-    {% trans "Done, go" %} <a href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>.
+    <div class="civic-banner civic-banner--good">
+      <p>{% trans "Done, go" %} <a href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>.</p>
+    </div>
   </div>
 
   <div id="error" style="display:none;">
-    {% trans "Error emailing participants. Check server settings, make sure there's an SMTP server." %}
+    <div class="civic-banner civic-banner--stop">
+      <p>{% trans "Error emailing participants. Check server settings, make sure there's an SMTP server." %}</p>
+    </div>
   </div>
 
+</div>
 {% endblock %}

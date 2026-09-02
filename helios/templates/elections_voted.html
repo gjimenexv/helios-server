@@ -1,12 +1,26 @@
 {% extends TEMPLATE_BASE %}
 {% load i18n %}
 
-{% block content %}
-  <h2 class="title">{% trans "Elections where you voted" %} <span style="font-size:0.7em;">[<a href="/">{% trans "back to home" %}</a>]</span></h2>
+{% block body_class %}civic civic-paper{% endblock %}
 
-<ul>
-{% for election in elections %}
-<li> <a href="{% url "election@view" election.uuid %}">{{election.name}}</a></li>
-{% endfor %}
-</ul>
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
+{% block content %}
+<div class="civic-sheet civic-console civic-enter">
+
+  {% trans "Elections where you voted" as section %}
+  {% trans "back to home" as back_label %}
+  {% include "_civic_console_head.html" with section=section back_url="/" back_label=back_label %}
+
+  {% if elections %}
+  <ul class="civic-records">
+  {% for election in elections %}
+    <li><a href="{% url "election@view" election.uuid %}">{{election.name}}</a></li>
+  {% endfor %}
+  </ul>
+  {% else %}
+  <div class="civic-empty">{% trans "You have not voted in any elections yet." %}</div>
+  {% endif %}
+
+</div>
 {% endblock %}

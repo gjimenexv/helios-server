@@ -2,19 +2,34 @@
 {% load i18n %}
 
 {% block title %}{% blocktrans %}Release Result &mdash; {{ election.name }}{% endblocktrans %}{% endblock %}
-{% block content %}
-  <h2 class="title">{{election.name}} &mdash; {% trans "Release Result" %} <span style="font-size:0.7em;">[<a href="{% url "election@view" election.uuid %}">{% trans "cancel" %}</a>]</span></h2>
 
-  <p>
-    {% trans "You are about to release the result for this election." %}
-  </p>
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
+{% block content %}
+<div class="civic-sheet civic-console civic-enter">
+
+  {% trans "Release Result" as section %}
+  {% trans "cancel" as back_label %}
+  {% url "election@view" election.uuid as back_url %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
+
+  <!-- Releasing is public and irreversible: everyone sees the tally afterwards. -->
+  <div class="civic-banner civic-banner--warn">
+    <p>{% trans "You are about to release the result for this election." %}</p>
+  </div>
 
   <form method="POST" action="">
-    <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-    <p>
-    <input type="checkbox" name="send_email" value="send_email" checked="checked"/> {% trans "Send email to voters reporting release of result." %}
-    </p>
-    <input type="submit" class="button" value="{% trans "release result!" %}" />
+  <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+  <div class="civic-choice">
+    <input type="checkbox" id="send_email" name="send_email" value="send_email" checked="checked" />
+    <label for="send_email">{% trans "Send email to voters reporting release of result." %}</label>
+  </div>
+  <div class="civic-actions">
+    <button type="submit" class="civic-btn civic-btn--primary civic-btn--cast">{% trans "release result!" %}</button>
+  </div>
   </form>
 
+</div>
 {% endblock %}

@@ -2,44 +2,65 @@
 {% load i18n %}
 {% block title %}{% blocktrans with election_name=election.name %}Compute Encryted Tally for {{election_name}}{% endblocktrans %}{% endblock %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
-  <h2 class="title">{% blocktrans with election_name=election.name %}Compute Tally for Election: {{election_name}}{% endblocktrans %}</h2>
+<div class="civic-sheet civic-console civic-enter">
+
+  {% trans "Compute Tally" as section %}
+  {% trans "back to election" as back_label %}
+  {% url "election@view" election.uuid as back_url %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
 
 <div id="instructions">
+
 {% if num_pending_votes > 0 %}
-<p>
-    <b>{% blocktrans count counter=num_pending_votes %}{{ counter }} vote still being processed.{% plural %}{{ counter }} votes still being processed.{% endblocktrans %}</b>
-</p>
-<p>
+
+  <div class="civic-banner civic-banner--warn">
+    <p class="civic-banner__title">{% blocktrans count counter=num_pending_votes %}{{ counter }} vote still being processed.{% plural %}{{ counter }} votes still being processed.{% endblocktrans %}</p>
+    <p>
     {% trans "All votes must be verified before computing the tally. Please wait and try again shortly." %}
     {% blocktrans with help_email=settings.HELP_EMAIL_ADDRESS %}If this persists, contact <a href="mailto:{{help_email}}">{{help_email}}</a>.{% endblocktrans %}
-</p>
-<p>
-    <a href="{% url "election@compute-tally" election.uuid %}">{% trans "Refresh this page" %}</a> |
-    <a href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>
-</p>
+    </p>
+  </div>
+
+  <div class="civic-actions">
+    <a class="civic-btn civic-btn--primary" href="{% url "election@compute-tally" election.uuid %}">{% trans "Refresh this page" %}</a>
+    <a class="civic-btn civic-btn--quiet" href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>
+  </div>
+
 {% elif election.num_cast_votes %}
-<p>
+
+  <p class="civic-lede">
     {% blocktrans with election_name=election.name %}You are about to compute the encrypted tally for election <b>{{election_name}}</b>.{% endblocktrans %}
-</p>
+  </p>
 
-<p>
-    {% trans "Once you do this, voters will no longer be able to cast a ballot." %}
-</p>
+  <!-- This closes voting for good, so it is called out rather than buried. -->
+  <div class="civic-banner civic-banner--warn">
+    <p>{% trans "Once you do this, voters will no longer be able to cast a ballot." %}</p>
+  </div>
 
-<form method="post" action="" onsubmit="alert('ok, tally has begun')" class="pretty">
-<input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+  <form method="post" action="" onsubmit="alert('ok, tally has begun')">
+  <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+  <div class="civic-actions">
+    <button type="submit" class="civic-btn civic-btn--primary civic-btn--cast">{% trans "compute encrypted tally!" %}</button>
+    <a class="civic-btn civic-btn--quiet" href="{% url "election@view" election.uuid %}">{% trans "never mind" %}</a>
+  </div>
+  </form>
 
-<input class="button" type="submit" value="{% trans "compute encrypted tally!" %}" />
-<button class="button" onclick="document.location='{% url "election@view" election.uuid %}'; return false;">{% trans "never mind" %}</button>
-</form>
 {% else %}
-<p>
-{% trans "No votes have been cast in this election. At least one vote must be cast before you compute the tally." %}<br /><br />
-<a href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>
-</p>
+
+  <div class="civic-empty">
+    {% trans "No votes have been cast in this election. At least one vote must be cast before you compute the tally." %}
+  </div>
+  <div class="civic-actions">
+    <a class="civic-btn civic-btn--quiet" href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>
+  </div>
+
 {% endif %}
 </div>
 
-<br /><br />
+</div>
 {% endblock %}

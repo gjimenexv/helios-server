@@ -1,0 +1,27 @@
+{% comment %}
+  Shared header for the admin console pages.
+
+  Every console screen is "this election — this section", with the way back in
+  a fixed place, so the header is one partial rather than twenty near-copies.
+  The caller passes already-translated strings, which keeps each page's msgids
+  where xgettext can see them:
+
+    {% trans "Manage Voters" as section %}
+    {% trans "back to election" as back_label %}
+    {% url "election@view" election.uuid as back_url %}
+    {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
+{% endcomment %}
+<div class="civic-console__head">
+  <div class="civic-console__titles">
+    {% if eyebrow %}
+    <p class="civic-eyebrow">
+      <span class="civic-eyebrow__mark">&#9632;</span>
+      <span>{{ eyebrow }}</span>
+    </p>
+    {% endif %}
+    <h1>{{ section }}</h1>
+  </div>
+  {% if back_url %}
+  <a class="civic-crumb" href="{{ back_url }}">{{ back_label }}</a>
+  {% endif %}
+</div>

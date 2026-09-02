@@ -2,41 +2,53 @@
 {% load i18n %}
 {% block title %}{% blocktrans with election_name=election.name %}Administrators for {{election_name}}{% endblocktrans %}{% endblock %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
-  <h3 class="title">{{election.name}} &mdash; {% trans "Administrators" %} <span style="font-size:0.7em;">[<a href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>]</span></h3>
+<div class="civic-sheet civic-console civic-enter">
 
-<p>
+  {% trans "Administrators" as section %}
+  {% trans "back to election" as back_label %}
+  {% url "election@view" election.uuid as back_url %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
+
+  <div class="civic-toolbar">
+    <a class="civic-btn civic-btn--quiet civic-btn--small" href="{% url "election@admins@add" election.uuid %}">{% trans "add an administrator" %}</a>
+  </div>
+
+  <p class="civic-lede">
     {% trans "Administrators have full control over this election, including managing voters, questions, trustees, and settings." %}
-</p>
+  </p>
 
-<p>
-    [ <a href="{% url "election@admins@add" election.uuid %}">{% trans "add an administrator" %}</a> ]
-</p>
+  <p class="civic-section">{% trans "Election Creator" %}</p>
+  <ul class="civic-records">
+    <li>
+      <strong>{{admin.display_html_small|safe}}</strong>
+      <span class="civic-records__meta">{{admin.user_id}}</span>
+      <span class="civic-records__meta"><em>{% trans "The election creator cannot be removed." %}</em></span>
+    </li>
+  </ul>
 
-<h4>{% trans "Election Creator" %}</h4>
-<p>
-  <strong>{{admin.display_html_small|safe}}</strong> ({{admin.user_id}})<br />
-  <em>{% trans "The election creator cannot be removed." %}</em>
-</p>
-
-{% if additional_admins %}
-<h4>{% trans "Additional Administrators" %}</h4>
-<ul>
-{% for a in additional_admins %}
-<li>
-  {{a.display_html_small|safe}} ({{a.user_id}})
-  {% if a.pk != current_user.pk %}
-  [<a href="{% url "election@admins@remove" election.uuid %}?email={{a.user_id}}&user_type={{a.user_type}}">{% trans "remove" %}</a>]
+  <p class="civic-section">{% trans "Additional Administrators" %}</p>
+  {% if additional_admins %}
+  <ul class="civic-records">
+  {% for a in additional_admins %}
+    <li>
+      {{a.display_html_small|safe}}
+      <span class="civic-records__meta">{{a.user_id}}</span>
+      {% if a.pk != current_user.pk %}
+      <a href="{% url "election@admins@remove" election.uuid %}?email={{a.user_id}}&user_type={{a.user_type}}">{% trans "remove" %}</a>
+      {% else %}
+      <span class="civic-records__meta"><em>({% trans "you" %})</em></span>
+      {% endif %}
+    </li>
+  {% endfor %}
+  </ul>
   {% else %}
-  <em>({% trans "you" %})</em>
+  <div class="civic-empty">{% trans "No additional administrators have been added." %}</div>
   {% endif %}
-</li>
-{% endfor %}
-</ul>
-{% else %}
-<p>
-  <em>{% trans "No additional administrators have been added." %}</em>
-</p>
-{% endif %}
 
+</div>
 {% endblock %}
