@@ -6,6 +6,8 @@
 
 {% block body_class %}civic civic-paper{% endblock %}
 
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
 <div class="civic-sheet civic-enter">
 
@@ -89,7 +91,7 @@
   <p class="civic-note">
   {% if election.voting_extended_until %}
   {% blocktrans with election_type=election.election_type end_time=election.voting_ends_at|utc_time extended_time=election.voting_extended_until|utc_time %}This {{ election_type }} was initially scheduled to end at {{ end_time }},<br />
-  but has been extended until {{ extended_time }}.{% endblocktrans %}
+but has been extended until {{ extended_time }}.{% endblocktrans %}
   {% else %}
   {% if election.voting_ends_at %}
   {% blocktrans with election_type=election.election_type end_time=election.voting_ends_at|utc_time %}This {{ election_type }} is scheduled to end at {{ end_time }}.{% endblocktrans %}
@@ -107,7 +109,7 @@
 
   <div class="civic-banner civic-banner--stop" style="display:none;" id="nojava_message">
     {% blocktrans %}You do not have Java installed in your browser.<br />At this time, Helios requires Java.<br />
-    Visit <a target="_new" href="http://java.sun.com">java.sun.com</a> to install it.{% endblocktrans %}
+  Visit <a target="_new" href="http://java.sun.com">java.sun.com</a> to install it.{% endblocktrans %}
   </div>
 
   {% else %}
@@ -237,7 +239,10 @@
   <div class="civic-adminbar">
     <p class="civic-adminbar__title">{% trans "administrators" %}</p>
 
-    <p>
+    <!-- A div, not a p: these rows hold inline <form>s (the admin actions are
+         POSTs so they can carry a CSRF token), and the parser would auto-close
+         a <p> at the first one. -->
+    <div class="civic-adminbar__row">
       {% if not election.frozen_at %}
       <a class="civic-btn civic-btn--quiet civic-btn--small" href="{% url "election@edit" election.uuid %}">{% trans "edit" %}</a>
       {% endif %}
@@ -270,14 +275,14 @@
       {% if election.voting_ends_at and not election.tallying_started_at %}
       <a class="civic-btn civic-btn--quiet civic-btn--small" href="{% url "election@extend" election.uuid %}">{% trans "extend voting" %}</a>
       {% endif %}
-    </p>
+    </div>
 
     {% if election.help_email %}
     <p>{% blocktrans with help_email=election.help_email %}Help Email Address: {{ help_email }}{% endblocktrans %}</p>
     {% endif %}
 
     {% if not election.private_p %}
-    <p>
+    <div class="civic-adminbar__row">
     {% if election.featured_p %}
     {% blocktrans with election_type=election.election_type %}this {{ election_type }} is featured on the front page.{% endblocktrans %}
     {% if can_feature_p %}
@@ -289,7 +294,7 @@
     [<form class="inline-action" method="post" action="{% url "election@set-featured" election.uuid %}"><input type="hidden" name="csrf_token" value="{{csrf_token}}" /><input type="hidden" name="featured_p" value="1" /><button type="submit" class="link-button">{% trans "feature it" %}</button></form>]
     {% endif %}
     {% endif %}
-    </p>
+    </div>
     {% endif %}
 
     {% if election.result_released_at %}
@@ -328,7 +333,7 @@ trustees will be asked to provide their share of the decryption.{% endblocktrans
 
     {% if election.result %}
     <a href="{% url "election@release-result" election.uuid %}">{% trans "release result" %}</a><br />
-    {% blocktrans %}The result displayed below is visible only to you.<br />
+    {% blocktrans %}The result shown at the top of this page is visible only to you.<br />
 Once you release the result, it will be visible to everyone.{% endblocktrans %}
     {% else %}
 

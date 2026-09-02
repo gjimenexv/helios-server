@@ -4,6 +4,8 @@
 
 {% block body_class %}civic civic-paper{% endblock %}
 
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
 <script language="javascript">
 function show_waiting() {
@@ -91,7 +93,7 @@ window.onbeforeunload = function(evt) {
 
   {% else %}
     {% blocktrans %}This election is only open to <em>registered voters</em>, so log in with
-    the same account you registered with.{% endblocktrans %}
+  the same account you registered with.{% endblocktrans %}
   {% endif %}
   </p>
 

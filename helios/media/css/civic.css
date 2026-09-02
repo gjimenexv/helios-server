@@ -24,7 +24,15 @@
   Light-only, deliberately: a ballot is paper. There is no dark variant.
 */
 
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+/*
+  Webfonts are NOT @import-ed here on purpose. The site shell links this file on
+  every page (so the .civic-* rules are available and stay cached), but an
+  @import is fetched whenever the stylesheet is parsed, which would send every
+  admin and trustee page out to fonts.googleapis.com for type it never renders.
+  Pages that opt into this design system pull the fonts in themselves:
+  templates/_civic_fonts.html for the Django pages, a <link> in vote.html for
+  the booth. Each family falls back to a real local stack below.
+*/
 
 /* ==========================================================================
    1. Tokens
@@ -1507,4 +1515,19 @@ body.civic #proceed_loading_img {
 
 .civic-tally__row--winner .civic-tally__bar span {
   background: var(--accent);
+}
+
+/* A row of admin controls. A div rather than a p: these rows hold inline
+   <form>s (state-changing admin actions are POSTs so they can carry a CSRF
+   token), and an HTML parser closes a <p> at the first <form> it meets. */
+.civic-adminbar__row {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin: 0 0 .85rem;
+}
+
+.civic-adminbar__row:last-child {
+  margin-bottom: 0;
 }

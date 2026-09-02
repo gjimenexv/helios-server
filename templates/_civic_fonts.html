@@ -1,0 +1,13 @@
+{% comment %}
+  Webfonts for the voter-facing "Civic Ledger" pages (helios/media/css/civic.css).
+
+  Deliberately NOT an @import inside civic.css: the site shell links civic.css
+  on every page so the stylesheet stays cached and the .civic-* rules are
+  available, but an @import fires whenever the file is parsed, which would send
+  every admin and trustee page out to fonts.googleapis.com for type it never
+  renders. Pulling it in here instead means only pages that opt into the design
+  system pay the third-party request.
+{% endcomment %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">

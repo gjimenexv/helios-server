@@ -10,6 +10,9 @@
        civic.css carries its own scoped reset and booth shell rules, so
        Bootstrap and the old booth.css/forms.css are no longer loaded here.
        (single-ballot-verify.html still links those two and is unaffected.) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&amp;family=Archivo:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap">
   <link rel="stylesheet" type="text/css" href="/static/helios/css/civic.css" />
 
 <!--
@@ -582,15 +585,15 @@ BOOTH.do_done = function() {
   <ol id="progress_div" class="civic-steps" style="display:none">
       <li id="progress_1" class="civic-step">
         <span class="civic-step__num">1</span>
-        <span class="civic-step__label" data-i18n="progress_select">(1) Select</span>
+        <span class="civic-step__label" data-i18n="progress_select">Select</span>
       </li>
       <li id="progress_2" class="civic-step">
         <span class="civic-step__num">2</span>
-        <span class="civic-step__label" data-i18n="progress_review">(2) Review</span>
+        <span class="civic-step__label" data-i18n="progress_review">Review</span>
       </li>
       <li id="progress_3" class="civic-step">
         <span class="civic-step__num">3</span>
-        <span class="civic-step__label" data-i18n="progress_submit">(3) Submit</span>
+        <span class="civic-step__label" data-i18n="progress_submit">Submit</span>
       </li>
   </ol>
   <div id="election_div" class="panel">
