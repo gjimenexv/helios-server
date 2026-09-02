@@ -1,24 +1,31 @@
 
 <div id="questions_div">
-<p>
+
+<p class="civic-lede">
     {$T.i18n.election_intro}
-<p>
-
-<ol>
-    <li> <b>{$T.i18n.election_step_select_label}</b> {$T.i18n.election_step_select_text}</li>
-<br />
-
-    <li> <b>{$T.i18n.election_step_review_label}</b> {$T.i18n.election_step_review_text}</li>
-<br />
-
-    <li> <b>{$T.i18n.election_step_submit_label}</b> {$T.i18n.election_step_submit_text}</li>
-
-</ol>
-
-<div align="center"><button onclick="BOOTH.show_question(0);">{$T.i18n.election_start_button}</button></div>
-</div>
-
-<p>
-  {$T.i18n.election_help_prefix} <a target="_new" href="mailto:{$T.election_metadata.help_email}?subject=help%20with%20election%20{$T.election.name}&body=I%20need%20help%20with%20election%20{$T.election.uuid}">{$T.i18n.election_email_help}</a>.
 </p>
 
+<ol class="civic-howto">
+    <li>
+      <span class="civic-howto__label">{$T.i18n.election_step_select_label}</span>
+      <span class="civic-howto__text">{$T.i18n.election_step_select_text}</span>
+    </li>
+    <li>
+      <span class="civic-howto__label">{$T.i18n.election_step_review_label}</span>
+      <span class="civic-howto__text">{$T.i18n.election_step_review_text}</span>
+    </li>
+    <li>
+      <span class="civic-howto__label">{$T.i18n.election_step_submit_label}</span>
+      <span class="civic-howto__text">{$T.i18n.election_step_submit_text}</span>
+    </li>
+</ol>
+
+<div class="civic-actions">
+  <button class="civic-btn civic-btn--primary civic-btn--cast" onclick="BOOTH.show_question(0);">{$T.i18n.election_start_button}</button>
+</div>
+
+</div>
+
+<p class="civic-note">
+  {$T.i18n.election_help_prefix} <a target="_new" href="mailto:{$T.election_metadata.help_email}?subject=help%20with%20election%20{$T.election.name}&body=I%20need%20help%20with%20election%20{$T.election.uuid}">{$T.i18n.election_email_help}</a>.
+</p>

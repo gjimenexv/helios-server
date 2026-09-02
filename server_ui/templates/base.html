@@ -19,6 +19,13 @@
   <link rel="stylesheet" href="/static/helios/timezone-display.css">
   {% include "_branding_theme.html" %}
 
+  <!-- The voter-facing design system. Loaded last so it wins over Foundation
+       and Bootstrap, and after the branding block so it can read that block's
+       --brand-* variables. Everything in it is namespaced .civic-*, and it only
+       takes effect on pages that opt in via the body_class block below, so the
+       admin/legacy screens are unaffected. -->
+  <link rel="stylesheet" href="/static/helios/css/civic.css">
+
 {% if settings.DEBUG %}  
   <script src="/static/foundation/js/vendor/custom.modernizr.js"></script>
   <script language="javascript" src="/static/helios/js/jquery-1.4.2.min.js"></script>
@@ -39,7 +46,7 @@
 
   {% block extra-head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <div class="wrapper">
   <nav class="navbar navbar-expand-lg" style="background-color: var(--brand-primary);">
     <div class="d-flex align-items-center w-100" style="padding: 0 1rem;">
