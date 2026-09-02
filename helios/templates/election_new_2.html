@@ -1,6 +1,10 @@
 {% extends "helios/templates/cryptobase.html" %}
 {% load i18n %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
 <script language="javascript">
 
@@ -47,47 +51,55 @@ $(document).ready(function() {
 });
 </script>
 
-  <h2 class="title">{% blocktrans %}Create a New Election: {{ name }}{% endblocktrans %}</h2>
-{% if election_type == "helios" %}
-  <b>{% trans "An election managed by Helios" %}</b>.
-{% else %}
-{% if election_type == "one" %}
-  <b>{% trans "An election managed by you, the single administrator" %}</b>.
-{% else %}
-<b>{% trans "An election managed by multiple trustees" %}</b>.
-{% endif %}
-{% endif %}
-  <form class="prettyform" action="{% url "helios.views.election_new_3" %}" method="POST" id="create_election_form" onsubmit="return before_create();">
+<div class="civic-sheet civic-console civic-sheet--narrow civic-enter">
+
+  <div class="civic-console__head">
+    <div class="civic-console__titles">
+      <p class="civic-eyebrow">
+        <span class="civic-eyebrow__mark">&#9632;</span>
+        <span>{% if election_type == "helios" %}{% trans "An election managed by Helios" %}{% else %}{% if election_type == "one" %}{% trans "An election managed by you, the single administrator" %}{% else %}{% trans "An election managed by multiple trustees" %}{% endif %}{% endif %}</span>
+      </p>
+      <h1>{% blocktrans %}Create a New Election: {{ name }}{% endblocktrans %}</h1>
+    </div>
+  </div>
+
+  <form class="civic-form" action="{% url "helios.views.election_new_3" %}" method="POST" id="create_election_form" onsubmit="return before_create();">
       <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
       <input type="hidden" name="name" value="{{name}}" />
       <input type="hidden" name="public_key" id="pk" value="" />
       <input type="hidden" name="private_key" id="sk" value="" /><br />
 
 {% if election_type != "multiple" %}
-  <label for="generate_key">&nbsp;</label><button class="button" onclick="generate_keypair(); return false;" id="generate_button">{% trans "Generate Election Keys" %}</button>
+  <div class="civic-actions">
+    <button class="civic-btn civic-btn--primary" onclick="generate_keypair(); return false;" id="generate_button">{% trans "Generate Election Keys" %}</button>
+  </div>
 {% else %}
-<div id="trustees">
-<h3>{% trans "Trustees (up to 5)" %}</h3>
-<label for="">&nbsp;</label> <input type="text" name="trustee" /><br />
-<label for="">&nbsp;</label> <input type="text" name="trustee" /><br />
-<label for="">&nbsp;</label> <input type="text" name="trustee" /><br />
-<label for="">&nbsp;</label> <input type="text" name="trustee" /><br />
-<label for="">&nbsp;</label> <input type="text" name="trustee" /><br />
+<div id="trustees" class="civic-panel">
+  <p class="civic-section" style="margin-top:0;">{% trans "Trustees (up to 5)" %}</p>
+  <p><input type="text" name="trustee" /></p>
+  <p><input type="text" name="trustee" /></p>
+  <p><input type="text" name="trustee" /></p>
+  <p><input type="text" name="trustee" /></p>
+  <p><input type="text" name="trustee" /></p>
 </div>
 {% endif %}
-<br /><br />
-<label for="">&nbsp;</label>  <input class="button" type="submit" value="{% trans "create" %}" id="submit" />
+<div class="civic-actions">
+  <button class="civic-btn civic-btn--primary civic-btn--cast" type="submit" id="submit">{% trans "create" %}</button>
+</div>
   </form>
-  <br /><br />
 {% if election_type == "one" %}
-  <form style="padding-left: 200px;" id="sk_form" onsubmit="return false;">
+  <!-- The only moment this key exists outside the admin's own clipboard, so it
+       gets the receipt-strip treatment used for ballot trackers. -->
+  <form id="sk_form" class="civic-tracker" style="max-width:46rem;" onsubmit="return false;">
       <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-      {% trans "Your Election's Secret Key:" %}<br />
-      <label for="">&nbsp;</label>
-      <textarea id="sk_textarea" cols="60" rows="5">
-      </textarea><br />
-      {% blocktrans %}(You need to copy and paste this key and keep it safe,<br />
-      otherwise you won't be able to tally your election.){% endblocktrans %}
+      <span class="civic-tracker__label">{% trans "Your Election's Secret Key:" %}</span>
+      <textarea class="civic-raw" id="sk_textarea" rows="5"></textarea>
+      <div class="civic-tracker__foot">
+        <p>{% blocktrans %}(You need to copy and paste this key and keep it safe,<br />
+      otherwise you won't be able to tally your election.){% endblocktrans %}</p>
+      </div>
   </form>
 {% endif %}
+
+</div>
 {% endblock %}

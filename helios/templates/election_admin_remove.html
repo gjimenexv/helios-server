@@ -2,25 +2,32 @@
 {% load i18n %}
 {% block title %}{% blocktrans with election_name=election.name %}Remove Administrator - {{election_name}}{% endblocktrans %}{% endblock %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
-  <h3 class="title">{{election.name}} &mdash; {% trans "Remove Administrator" %} <span style="font-size:0.7em;">[<a href="{% url "election@admins" election.uuid %}">{% trans "cancel" %}</a>]</span></h3>
+<div class="civic-sheet civic-console civic-sheet--narrow civic-enter">
 
-<p>
-    {% blocktrans with admin_display=admin_to_remove.display_html_small|safe admin_id=admin_to_remove.user_id %}Are you sure you want to remove <strong>{{admin_display}}</strong> ({{admin_id}}) as an administrator of this election?{% endblocktrans %}
-</p>
+  {% trans "Remove Administrator" as section %}
+  {% trans "cancel" as back_label %}
+  {% url "election@admins" election.uuid as back_url %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
 
-<p>
-    {% trans "They will no longer be able to manage this election." %}
-</p>
+  <div class="civic-banner civic-banner--stop">
+    <p>{% blocktrans with admin_display=admin_to_remove.display_html_small|safe admin_id=admin_to_remove.user_id %}Are you sure you want to remove <strong>{{admin_display}}</strong> ({{admin_id}}) as an administrator of this election?{% endblocktrans %}</p>
+    <p>{% trans "They will no longer be able to manage this election." %}</p>
+  </div>
 
-<form method="post" action="">
-<input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-<input type="hidden" name="email" value="{{admin_to_remove.user_id}}" />
-<input type="hidden" name="user_type" value="{{admin_to_remove.user_type}}" />
+  <form method="post" action="">
+  <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+  <input type="hidden" name="email" value="{{admin_to_remove.user_id}}" />
+  <input type="hidden" name="user_type" value="{{admin_to_remove.user_type}}" />
+  <div class="civic-actions">
+    <button type="submit" class="civic-btn civic-btn--primary">{% trans "Remove Administrator" %}</button>
+    <a class="civic-btn civic-btn--quiet" href="{% url "election@admins" election.uuid %}">{% trans "Cancel" %}</a>
+  </div>
+  </form>
 
-<input class="button" type="submit" value="{% trans "Remove Administrator" %}" />
-&nbsp;&nbsp;
-<a href="{% url "election@admins" election.uuid %}">{% trans "Cancel" %}</a>
-</form>
-
+</div>
 {% endblock %}

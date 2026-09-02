@@ -1,15 +1,34 @@
 {% extends "helios/templates/cryptobase.html" %}
 {% load i18n %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
-  <h2 class="title">{% blocktrans with election_name=election.name %}{{ election_name }} &mdash; New Trustee{% endblocktrans %} <span style="font-size:0.7em;">[<a href="{% url "election@trustees@view" election.uuid %}">{% trans "cancel" %}</a>]</span></h2>
+<div class="civic-sheet civic-console civic-sheet--narrow civic-enter">
 
-<form method="post" action="">
-<input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-{% trans "Name:" %} <input type="text" name="name" size="60" /><br /><br />
-{% trans "Email:" %} <input type="text" name="email" size="60" /><br /><br />
+  {% trans "cancel" as back_label %}
+  {% url "election@trustees@view" election.uuid as back_url %}
+  {% trans "New Trustee" as section %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
 
-<input class="button" type="submit" value="{% trans "Add Trustee" %}" />
-</form>
+  <div class="civic-panel">
+    <form class="civic-form" method="post" action="">
+    <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+    <p>
+      <label for="trustee_name">{% trans "Name:" %}</label>
+      <input type="text" id="trustee_name" name="name" size="60" />
+    </p>
+    <p>
+      <label for="trustee_email">{% trans "Email:" %}</label>
+      <input type="text" id="trustee_email" name="email" size="60" />
+    </p>
+    <div class="civic-actions" style="margin-bottom:0;">
+      <button type="submit" class="civic-btn civic-btn--primary">{% trans "Add Trustee" %}</button>
+    </div>
+    </form>
+  </div>
 
+</div>
 {% endblock %}

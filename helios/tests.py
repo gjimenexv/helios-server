@@ -3600,8 +3600,12 @@ class VoterDeleteRestrictionTests(WebTest):
 
         response = self.client.get("/helios/elections/%s/voters/list" % self.election.uuid)
         self.assertStatusCode(response, 200)
-        # Check for the delete [x] button (a POST form, so that it carries a CSRF token)
-        self.assertContains(response, '>x</button></form>]')
+        # Assert on the delete endpoint being offered rather than on the button's
+        # markup: the control is a POST form so it carries a CSRF token, but its
+        # glyph and surrounding chrome are presentation and have changed before.
+        self.assertContains(
+            response,
+            "/helios/elections/%s/voters/%s/delete" % (self.election.uuid, self.voter.uuid))
 
     def test_voters_list_hides_delete_button_when_blocked(self):
         """Voter list should hide delete [x] button when tallying has started"""
@@ -3611,6 +3615,8 @@ class VoterDeleteRestrictionTests(WebTest):
 
         response = self.client.get("/helios/elections/%s/voters/list" % self.election.uuid)
         self.assertStatusCode(response, 200)
-        # Check that the delete button is not present
-        self.assertNotContains(response, '>x</button></form>]')
+        # Check that the delete endpoint is not offered
+        self.assertNotContains(
+            response,
+            "/helios/elections/%s/voters/%s/delete" % (self.election.uuid, self.voter.uuid))
 

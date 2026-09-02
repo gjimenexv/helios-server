@@ -1,53 +1,63 @@
 {% extends TEMPLATE_BASE %}
 {% load i18n %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
-  <h2 class="title">{{election.name}} &mdash; {% trans "Bulk Upload Voters" %} <span style="font-size:0.7em;">[<a href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>]</span></h2>
+<div class="civic-sheet civic-console civic-enter">
 
-<form method="post" action="" id="upload_form" enctype="multipart/form-data">
-<p>
-    {% trans "If you would like to specify your list of voters by name and email address," %}<br />
-    {% trans "you can bulk upload a list of such voters here." %}<br /><br />
+  {% trans "Bulk Upload Voters" as section %}
+  {% trans "back to election" as back_label %}
+  {% url "election@view" election.uuid as back_url %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
 
-    {% trans "Please prepare a text file of comma-separated values with the fields:" %}
-</p>
-<pre>
-   password,&lt;unique_id&gt;,&lt;email&gt,&lt;full name&gt;
-</pre>
-<p>
-{% trans "or" %}
-</p>
-<pre>
-   github,&lt;username&gt;
-</pre>
-
-<p>
-{% trans "For example:" %}
+  <p class="civic-lede">
+    {% trans "If you would like to specify your list of voters by name and email address," %}
+    {% trans "you can bulk upload a list of such voters here." %}
   </p>
-  <pre>
-      password,bobsmith,bob@acme.org,Bob Smith
-      github,benadida
-      ...
-  </pre>
 
-  <p>
+  <p class="civic-section">{% trans "Please prepare a text file of comma-separated values with the fields:" %}</p>
+
+  <pre class="civic-pre">password,&lt;unique_id&gt;,&lt;email&gt;,&lt;full name&gt;</pre>
+
+  <p class="civic-note">{% trans "or" %}</p>
+
+  <pre class="civic-pre">github,&lt;username&gt;</pre>
+
+  <p class="civic-section">{% trans "For example:" %}</p>
+
+  <pre class="civic-pre">password,bobsmith,bob@acme.org,Bob Smith
+github,benadida
+...</pre>
+
+  <p class="civic-note">
     {% blocktrans %}The easiest way to prepare such a file is to use a spreadsheet program and to export as "CSV".{% endblocktrans %}
   </p>
+
   {% if error %}
-  <div style="color: red;">{{error}}</div>
+  <div class="civic-banner civic-banner--stop"><p>{{error}}</p></div>
   {% endif %}
+
+  <div class="civic-panel">
+    <form method="post" action="" id="upload_form" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-
     <input type="file" name="voters_file" />
-    <input class="button" type="submit" value="{% trans "go" %}" />
-</form>
+    <div class="civic-actions" style="margin-bottom:0;">
+      <button type="submit" class="civic-btn civic-btn--primary">{% trans "go" %}</button>
+    </div>
+    </form>
+  </div>
 
-<div id="processing">
+  <div id="processing"></div>
+
+  <div id="done" style="display:none;">
+    <div class="civic-banner civic-banner--good">
+      <p>{% trans "OK, done uploading." %}
+      {% trans "You can now" %} <a href="./manage">{% trans "view the list of voters" %}</a>.</p>
+    </div>
+  </div>
+
 </div>
-
-<div id="done" style="display:none;">
-  {% trans "OK, done uploading." %}<br />
-  {% trans "You can now" %} <a href="./manage">{% trans "view the list of voters" %}</a>.
-</div>
-
 {% endblock %}

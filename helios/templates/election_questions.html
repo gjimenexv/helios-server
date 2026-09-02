@@ -1,9 +1,18 @@
 {% extends "helios/templates/cryptobase.html" %}
 {% load i18n %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block title %}{% blocktrans with election_name=election.name %}Questions for {{ election_name }}{% endblocktrans %}{% endblock %}
 {% block content %}
-  <h3 class="title">{% blocktrans with election_name=election.name %}{{ election_name }} &mdash; Questions{% endblocktrans %} <span style="font-size:0.7em;">[<a href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>]</span></h3>
+<div class="civic-sheet civic-console civic-enter">
+
+  {% trans "Questions" as section %}
+  {% trans "back to election" as back_label %}
+  {% url "election@view" election.uuid as back_url %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
 
   <script language="javascript">
 {% if election.questions %}
@@ -219,6 +228,8 @@
 
   <div id="questions">
   </div>
+
+</div>
 					
 			<!-- end #content -->
 {% endblock %}

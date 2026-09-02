@@ -1598,3 +1598,713 @@ body.civic .tz-local {
 body.civic .tz-separator {
   color: var(--ink-faint);
 }
+
+/* ==========================================================================
+   25. Console
+
+   The admin side of the same design system, in a denser register. The voter
+   pages are editorial — one decision per screen, generous space. An admin is
+   reading tables, comparing counts and driving an election through its
+   lifecycle, so the console keeps the paper, the rules and the type, but
+   tightens the scale and leans on tabular layout.
+
+   Opted into with .civic-console alongside .civic-sheet.
+   ========================================================================== */
+
+.civic-console {
+  max-width: 72rem;
+  padding-top: clamp(1.5rem, 3vw, 2.5rem);
+}
+
+.civic-console h1 {
+  font-size: clamp(1.625rem, 3.4vw, 2.25rem);
+}
+
+/* Console header: the election name sits above as context, the section name is
+   the heading, and the way back is always in the same place. */
+.civic-console__head {
+  border-top: 3px solid var(--ink);
+  padding-top: .7rem;
+  margin-bottom: 2rem;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  flex-wrap: wrap;
+}
+
+.civic-console__head::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 1px;
+  border-top: 1px solid var(--ink);
+}
+
+.civic-console__titles {
+  min-width: 0;
+}
+
+.civic-crumb {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.civic-crumb::before {
+  content: '\2190\00a0';
+}
+
+/* Lifecycle state, shown as a stamped pill rather than prose. */
+.civic-status {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font-family: var(--mono);
+  font-size: .625rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  padding: .3rem .6rem;
+  border: 1px solid currentColor;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.civic-status--open   { color: var(--seal);  background: var(--seal-soft); }
+.civic-status--draft  { color: var(--ink-soft); background: var(--paper-sunk); }
+.civic-status--closed { color: #7a5c0d; background: var(--caution-soft); }
+.civic-status--done   { color: var(--accent); background: var(--accent-soft, transparent); }
+
+/* Row of page actions under the header. */
+.civic-toolbar {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  padding: 0 0 1.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.civic-toolbar form {
+  display: inline;
+  margin: 0;
+}
+
+.civic-toolbar__spacer {
+  flex: 1 1 auto;
+}
+
+/* --------------------------------------------------------------------------
+   Data tables
+   -------------------------------------------------------------------------- */
+
+.civic-tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-raised);
+  margin: 0 0 1.5rem;
+}
+
+.civic-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .875rem;
+}
+
+.civic-table th {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: .625rem;
+  font-weight: 500;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: .7rem .9rem;
+  border-bottom: 2px solid var(--ink);
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.civic-table td {
+  padding: .65rem .9rem;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.civic-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.civic-table tbody tr:hover {
+  background: rgba(23, 21, 15, .025);
+}
+
+/* Identifiers, hashes and counts are data, not prose. */
+.civic-table__id,
+.civic-table__num {
+  font-family: var(--mono);
+  font-size: .8125rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.civic-table__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.civic-table__tracker {
+  font-family: var(--mono);
+  font-size: .8125rem;
+  font-weight: 700;
+  color: var(--ink);
+  word-break: break-all;
+  min-width: 16rem;
+}
+
+.civic-table__actions {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.civic-table__actions form {
+  display: inline;
+  margin: 0;
+}
+
+.civic-table__none {
+  color: var(--ink-faint);
+}
+
+.civic-pager {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: .75rem;
+  letter-spacing: .04em;
+  color: var(--ink-soft);
+  margin: 0 0 1rem;
+}
+
+.civic-pager__count {
+  color: var(--ink-faint);
+}
+
+/* --------------------------------------------------------------------------
+   Admin forms
+
+   Django renders these with as_table / as_p, so the markup is fixed and the
+   styling has to meet it where it is.
+   -------------------------------------------------------------------------- */
+
+.civic-formtable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.25rem;
+}
+
+.civic-formtable th {
+  text-align: left;
+  vertical-align: top;
+  padding: .85rem 1.25rem .85rem 0;
+  width: 14rem;
+  font-family: var(--mono);
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--rule);
+}
+
+.civic-formtable th label {
+  font: inherit;
+  color: inherit;
+}
+
+.civic-formtable td {
+  padding: .7rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.civic-formtable tr:last-child th,
+.civic-formtable tr:last-child td {
+  border-bottom: 0;
+}
+
+.civic-formtable input[type="text"],
+.civic-formtable input[type="email"],
+.civic-formtable input[type="url"],
+.civic-formtable input[type="password"],
+.civic-formtable input[type="number"],
+.civic-formtable input[type="date"],
+.civic-formtable input[type="datetime-local"],
+.civic-formtable select,
+.civic-formtable textarea {
+  width: 100%;
+  max-width: 32rem;
+  font-family: var(--body);
+  font-size: .9375rem;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  padding: .5rem .6rem;
+}
+
+.civic-formtable textarea {
+  font-family: var(--mono);
+  font-size: .8125rem;
+  min-height: 8rem;
+}
+
+.civic-formtable input:focus,
+.civic-formtable select:focus,
+.civic-formtable textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft, rgba(0, 0, 0, .06));
+}
+
+.civic-formtable .helptext {
+  display: block;
+  margin-top: .35rem;
+  font-size: .8125rem;
+  color: var(--ink-faint);
+}
+
+.civic-formtable ul.errorlist {
+  list-style: none;
+  margin: .35rem 0 0;
+  padding: 0;
+  font-size: .8125rem;
+  color: var(--alarm);
+}
+
+/* --------------------------------------------------------------------------
+   Checklists, empty states, prose blocks
+   -------------------------------------------------------------------------- */
+
+/* "Before you can freeze the election, you will need to:" — a blocking list is
+   clearer as ruled rows with a marker than as bullets. */
+.civic-checklist {
+  list-style: none;
+  margin: .75rem 0 1.5rem;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+  max-width: 46rem;
+}
+
+.civic-checklist li {
+  padding: .75rem 0 .75rem 2rem;
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+}
+
+.civic-checklist li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 1rem;
+  width: .9rem;
+  height: .9rem;
+  border: 2px solid var(--rule-strong);
+}
+
+.civic-empty {
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+  color: var(--ink-faint);
+  font-style: italic;
+  border: 1px dashed var(--rule-strong);
+  background: var(--paper-sunk);
+  margin: 0 0 1.5rem;
+}
+
+.civic-section {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 2rem 0 .85rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Sample CSV / email preview blocks. */
+.civic-pre {
+  font-family: var(--mono);
+  font-size: .8125rem;
+  line-height: 1.6;
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  padding: .9rem 1.1rem;
+  margin: 0 0 1.25rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 46rem;
+}
+
+/* A list of records that is not quite a table: prior uploads, admins. */
+.civic-records {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  border: 1px solid var(--rule-strong);
+  background: var(--paper-raised);
+  max-width: 46rem;
+}
+
+.civic-records li {
+  padding: .8rem 1rem;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  align-items: baseline;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.civic-records li:last-child {
+  border-bottom: 0;
+}
+
+.civic-records__meta {
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--ink-faint);
+}
+
+/* Radio/checkbox option rows in admin forms (eligibility, admin picker). */
+.civic-choices {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  max-width: 46rem;
+}
+
+.civic-choices li,
+.civic-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+  padding: .6rem .8rem;
+  border: 1px solid var(--rule);
+  border-bottom: 0;
+  background: var(--paper-raised);
+}
+
+.civic-choices li:last-child,
+.civic-choice:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+
+.civic-choice label,
+.civic-choices label {
+  cursor: pointer;
+  margin: 0;
+}
+
+/* ==========================================================================
+   26. Ballot builder
+
+   helios/media/static_templates/question.html, the admin's question editor.
+   It used to carry its own <style> block in a different visual language; the
+   rules live here now so the builder matches the rest of the console.
+
+   Some class names below (.answer-row, .answer-number, .url-toggle,
+   .url-input-wrapper, .answer-input, .url-input) are NOT free to rename: the
+   rows are built as HTML strings by createAnswerRowHTML() in
+   election_questions.html, and add_answer() counts .answer-row to number the
+   next one.
+   ========================================================================== */
+
+.civic-qcard {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  box-shadow: 4px 4px 0 rgba(23, 21, 15, .06);
+  padding: clamp(1.1rem, 2.5vw, 1.6rem);
+  margin: 0 0 1.5rem;
+}
+
+/* The question being edited is the one thing on screen that matters. */
+.civic-qcard--editing {
+  border: 2px solid var(--accent);
+  box-shadow: 4px 4px 0 var(--accent-soft, rgba(23, 21, 15, .1));
+}
+
+.civic-qcard--new {
+  border-style: dashed;
+  background: var(--paper-sunk);
+  box-shadow: none;
+}
+
+.civic-qcard__head {
+  display: flex;
+  align-items: baseline;
+  gap: .85rem;
+  margin-bottom: .9rem;
+}
+
+/* Big ordinal, same device as the booth's step rail. */
+.civic-qcard__index {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: var(--accent);
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.civic-qcard__title {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.25;
+  margin: 0;
+  flex: 1 1 auto;
+  white-space: pre-line;
+  min-width: 0;
+}
+
+.civic-qcard__actions {
+  display: flex;
+  gap: .6rem;
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: .6875rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+/* Question rules, as a compact label/value strip. */
+.civic-qcard__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .3rem 1.25rem;
+  margin: 0 0 1rem;
+  padding: .55rem 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-size: .8125rem;
+}
+
+.civic-qcard__meta dt {
+  font-family: var(--mono);
+  font-size: .625rem;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.civic-qcard__meta dd {
+  margin: 0 .5rem 0 0;
+  color: var(--ink-soft);
+}
+
+.civic-qcard__answers {
+  list-style: none;
+  counter-reset: civic-ans;
+  margin: 0;
+  padding: 0;
+}
+
+.civic-qcard__answers li {
+  counter-increment: civic-ans;
+  display: flex;
+  align-items: baseline;
+  gap: .75rem;
+  padding: .5rem 0 .5rem 2rem;
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+}
+
+.civic-qcard__answers li:last-child {
+  border-bottom: 0;
+}
+
+.civic-qcard__answers li::before {
+  content: counter(civic-ans);
+  position: absolute;
+  left: 0;
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--ink-faint);
+}
+
+.civic-qcard__link {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+/* --- editor fields ------------------------------------------------------- */
+
+.civic-qfield {
+  margin: 0 0 1.1rem;
+}
+
+.civic-qlabel {
+  display: block;
+  font-family: var(--mono);
+  font-size: .6875rem;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: .4rem;
+}
+
+.civic-qcard input[type="text"],
+.civic-qcard input[type="url"],
+.civic-qcard select {
+  font-family: var(--body);
+  font-size: .9375rem;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: 0;
+  padding: .45rem .55rem;
+}
+
+.civic-qcard input[type="text"]:focus,
+.civic-qcard input[type="url"]:focus,
+.civic-qcard select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.civic-qinput {
+  width: 100%;
+  font-size: 1.0625rem !important;
+}
+
+/* The min/max/result-type row reads as a sentence. */
+.civic-qrules {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+  padding: .85rem 0;
+  margin: 0 0 1.1rem;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-size: .875rem;
+  color: var(--ink-soft);
+}
+
+.civic-qrules__sep {
+  margin-left: .75rem;
+  padding-left: .75rem;
+  border-left: 1px solid var(--rule);
+}
+
+.civic-qanswers {
+  background: var(--paper-sunk);
+  border: 1px solid var(--rule);
+  padding: 1rem;
+  margin: 0 0 1.25rem;
+}
+
+/* --- rows built by createAnswerRowHTML() --------------------------------- */
+
+.answers-container {
+  margin-bottom: .9rem;
+}
+
+.civic-qanswers .answer-row {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: .5rem .9rem;
+  align-items: start;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  padding: .6rem .75rem;
+  margin-bottom: .5rem;
+}
+
+.civic-qanswers .answer-number {
+  font-family: var(--mono);
+  font-size: .6875rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding-top: .55rem;
+}
+
+.civic-qanswers .url-toggle {
+  display: block;
+  margin-top: .2rem;
+  color: var(--accent);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.civic-qanswers .url-toggle:hover {
+  text-decoration: underline;
+}
+
+.civic-qanswers .answer-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  min-width: 0;
+}
+
+.civic-qanswers .answer-input,
+.civic-qanswers .url-input {
+  width: 100%;
+}
+
+.civic-qanswers .url-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.civic-qanswers .url-input {
+  font-family: var(--mono);
+  font-size: .8125rem;
+}
+
+@media (max-width: 40rem) {
+  .civic-qanswers .answer-row {
+    grid-template-columns: 1fr;
+  }
+
+  .civic-qanswers .answer-number {
+    padding-top: 0;
+  }
+}
+
+/* .civic p caps prose at the reading measure, but these are dividers and
+   layout rows, not paragraphs, so they opt out.
+
+   Note the doubled .civic: `.civic p` is a class plus an element (0,1,1),
+   which outranks a lone class (0,1,0). Anything here that overrides a
+   `.civic <element>` rule has to carry the extra class to win. The same trap
+   already cost us invisible button labels — see section 24. */
+.civic .civic-section,
+.civic .civic-banner p,
+.civic .civic-pager,
+.civic .civic-qcard__meta,
+.civic .civic-description {
+  max-width: none;
+}

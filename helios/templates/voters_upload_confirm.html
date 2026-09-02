@@ -1,48 +1,74 @@
 {% extends TEMPLATE_BASE %}
 {% load i18n %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
-  <h2 class="title">{{election.name}} &mdash; {% trans "Bulk Upload Voters" %} &mdash; {% trans "Confirm" %}<span style="font-size:0.7em;">[<a href="{% url "election@view" election.uuid %}">{% trans "back to election" %}</a>]</span></h2>
+<div class="civic-sheet civic-console civic-enter">
 
-<p>
-{% trans "You have uploaded a file of voters. The first few rows of this file are:" %}
-</p>
+  {% trans "Confirm" as section %}
+  {% trans "back to election" as back_label %}
+  {% url "election@view" election.uuid as back_url %}
+  {% include "_civic_console_head.html" with eyebrow=election.name section=section back_url=back_url back_label=back_label %}
 
-<table>
-<tr><th>{% trans "Voter Type" %}</th><th>{% trans "Voter Login" %}</th><th>{% trans "Email Address" %}</th><th>{% trans "Name" %}</th></tr>
-{% for v in voters %}
-<tr><td>{{v.voter_type}}</td><td>{{v.voter_id}}</td><td>{{v.email}}</td><td>{{v.name}}</td></tr>
-{% endfor %}
-</table>
+  <p class="civic-lede">
+  {% trans "You have uploaded a file of voters. The first few rows of this file are:" %}
+  </p>
 
-{% if problems %}
-<p style="font-size: 1.5em;">
-{% trans "HOLD ON:" %}<br />
-{% for problem in problems %}
-- {{problem}}<br />
-{% endfor %}
-</p>
-<br />
+  <div class="civic-tablewrap">
+  <table class="civic-table">
+  <thead>
+    <tr><th>{% trans "Voter Type" %}</th><th>{% trans "Voter Login" %}</th><th>{% trans "Email Address" %}</th><th>{% trans "Name" %}</th></tr>
+  </thead>
+  <tbody>
+  {% for v in voters %}
+    <tr><td class="civic-table__id">{{v.voter_type}}</td><td class="civic-table__id">{{v.voter_id}}</td><td class="civic-table__id">{{v.email}}</td><td>{{v.name}}</td></tr>
+  {% endfor %}
+  </tbody>
+  </table>
+  </div>
 
-<form class="inline-action" method="post" action="{% url "election@voters@upload-cancel" election.uuid %}">
-<input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-<button type="submit" class="link-button">{% trans "never mind, upload a different file" %}</button>
-</form>
+  {% if problems %}
 
-{% else %}
-<p></p>
-<form method="post" action="" id="upload_form">
-  {% trans "Does this look right to you?" %}
+  <div class="civic-banner civic-banner--stop">
+    <p class="civic-banner__title">{% trans "HOLD ON:" %}</p>
+    <ul class="civic-checklist">
+    {% for problem in problems %}
+      <li>{{problem}}</li>
+    {% endfor %}
+    </ul>
+  </div>
+
+  <form method="post" action="{% url "election@voters@upload-cancel" election.uuid %}">
   <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-  <input type="hidden" name="confirm_p" value="1" />
-  <input class="button" type="submit" value="{% trans "Yes, let's go" %}" />
-</form>
+  <div class="civic-actions">
+    <button type="submit" class="civic-btn civic-btn--quiet">{% trans "never mind, upload a different file" %}</button>
+  </div>
+  </form>
 
-<form class="inline-action" method="post" action="{% url "election@voters@upload-cancel" election.uuid %}">
-<input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-<button type="submit" class="link-button">{% trans "no, let me upload a different file" %}</button>
-</form>
+  {% else %}
 
-{% endif %}
+  <div class="civic-panel">
+    <form method="post" action="" id="upload_form">
+    <p>{% trans "Does this look right to you?" %}</p>
+    <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+    <input type="hidden" name="confirm_p" value="1" />
+    <div class="civic-actions" style="margin-bottom:0;">
+      <button type="submit" class="civic-btn civic-btn--primary">{% trans "Yes, let's go" %}</button>
+    </div>
+    </form>
+  </div>
 
+  <form method="post" action="{% url "election@voters@upload-cancel" election.uuid %}">
+  <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+  <div class="civic-actions">
+    <button type="submit" class="civic-btn civic-btn--quiet civic-btn--small">{% trans "no, let me upload a different file" %}</button>
+  </div>
+  </form>
+
+  {% endif %}
+
+</div>
 {% endblock %}

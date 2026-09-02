@@ -1,24 +1,30 @@
 {% extends TEMPLATE_BASE %}
 {% load i18n %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
+{% block extra-head %}{% include "_civic_fonts.html" %}{% endblock %}
+
 {% block content %}
+<div class="civic-sheet civic-console civic-enter">
 
-  <h2 class="title">{% trans "Create a New Election" %}</h2>
+  {% trans "Create a New Election" as section %}
+  {% trans "back to home" as back_label %}
+  {% include "_civic_console_head.html" with section=section back_url="/" back_label=back_label %}
 
-{% if error %}
-<p style="color: red;">
-    {{error}}
-</p>
-{% endif %}
+  {% if error %}
+  <div class="civic-banner civic-banner--stop"><p>{{error}}</p></div>
+  {% endif %}
 
-  <form class="prettyform" action="" method="POST" id="create_election_form">
+  <div class="civic-panel">
+    <form action="" method="POST" id="create_election_form">
     <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-    <table class="pretty">
-     {{election_form.as_table}}
-     </table>
-  <div>
-  <label for="">&nbsp;</label><input class="button" type="submit" value="{% trans "Next >>" %}" id="next_button" />
+    <table class="civic-formtable">{{election_form.as_table}}</table>
+    <div class="civic-actions" style="margin-bottom:0;">
+      <button type="submit" class="civic-btn civic-btn--primary" id="next_button">{% trans "Next >>" %}</button>
+    </div>
+    </form>
   </div>
-  </form>
 
+</div>
 {% endblock %}
