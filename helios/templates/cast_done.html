@@ -2,28 +2,71 @@
 {% load i18n %}
 {% block title %}{% trans "Confirm Vote" %}{% endblock %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
 {% block content %}
-<h1>{% blocktrans with election_name=election.name %}{{election_name}} &mdash; Vote Successfully Cast!{% endblocktrans %}</h1>
+<div class="civic-sheet civic-sheet--narrow civic-enter">
+
+  <div class="civic-masthead">
+    <p class="civic-eyebrow">
+      <span class="civic-eyebrow__mark">&#9632;</span>
+      <span>{{ election.name }}</span>
+    </p>
+    <h1>{% blocktrans with election_name=election.name %}{{election_name}} &mdash; Vote Successfully Cast!{% endblocktrans %}</h1>
+  </div>
 
 {% if vote_hash %}
-<p>
-  {% trans "Your ballot tracker is:" %}<br />
-    <span style="font-size:1.4em; font-weight: bold; word-break: break-word;">  {{vote_hash}}</span>
-</p>
-<p>
-  {% url "election@voters@list-pretty" election.uuid as voter_list_url %}
-  {% blocktrans %}This ballot tracker mathematically ensures that your ballot is counted. You can check all ballot trackers by viewing the <a href="{{voter_list_url}}">voter list</a>, where your ballot tracker should appear within a few minutes.{% endblocktrans %}
-</p>
+  <!-- The tracker is the artifact the voter leaves with: the receipt strip is
+       given the whole width and the loudest type on the page. -->
+  <div class="civic-tracker">
+    <span class="civic-tracker__label">{% trans "Your ballot tracker is:" %}</span>
+    <span class="civic-tracker__value" id="ballot_tracker">{{vote_hash}}</span>
+    <div class="civic-tracker__foot">
+      <button type="button" class="civic-btn civic-btn--small" id="copy_tracker"
+              data-copied-label="{% trans "Copied" %}">{% trans "Copy" %}</button>
+      <p>{% trans "Keep this. It is your proof that your ballot was recorded." %}</p>
+    </div>
+  </div>
+
+  <p class="civic-lede">
+    {% url "election@voters@list-pretty" election.uuid as voter_list_url %}
+    {% blocktrans %}This ballot tracker mathematically ensures that your ballot is counted. You can check all ballot trackers by viewing the <a href="{{voter_list_url}}">voter list</a>, where your ballot tracker should appear within a few minutes.{% endblocktrans %}
+  </p>
 {% endif %}
 
 {% if logout %}
-<p><b>{% trans "For your safety, we have logged you out." %}</b></p>
-<iframe width="0" height="0" border="0" frameborder="0" src="{% url "auth@logout" %}">
-</iframe>
+  <div class="civic-banner civic-banner--good">
+    <p>{% trans "For your safety, we have logged you out." %}</p>
+  </div>
+  <iframe width="0" height="0" border="0" frameborder="0" src="{% url "auth@logout" %}" title="logout">
+  </iframe>
 {% endif %}
 
-<p style="font-size: 1.4em;">
-[ <a href="{% url "election@view" election.uuid %}">{% trans "return to election info" %}</a> ]
-</p>
+  <div class="civic-actions">
+    <a class="civic-btn" href="{% url "election@view" election.uuid %}">{% trans "return to election info" %}</a>
+  </div>
 
+</div>
+
+{% if vote_hash %}
+<script>
+// Progressive enhancement: the tracker is selectable text regardless; this
+// just saves the voter a careful drag over a 40-character hash.
+(function() {
+  var btn = document.getElementById('copy_tracker');
+  var value = document.getElementById('ballot_tracker');
+  if (!btn || !value || !navigator.clipboard) {
+    if (btn) { btn.style.display = 'none'; }
+    return;
+  }
+  btn.addEventListener('click', function() {
+    navigator.clipboard.writeText(value.textContent.trim()).then(function() {
+      var original = btn.textContent;
+      btn.textContent = btn.getAttribute('data-copied-label');
+      setTimeout(function() { btn.textContent = original; }, 2000);
+    });
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

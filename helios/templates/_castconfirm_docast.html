@@ -5,41 +5,45 @@
 <div id="cast_form">
 <form id="cast_confirm_form" method="post" action="" onsubmit="show_waiting()">
     <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
-    
+
 {% if status_update_label %}
-<div class="round" style="background: #eee; padding: 10px; border: 1px dashed #888;">
-<input type="checkbox" name="status_update" value="1" checked /> {{status_update_label}}<br />
-<blockquote style="font-size: 1.3em;">
-"{{status_update_message}}"
+<div class="civic-panel civic-panel--sunk">
+<label class="civic-option__label" style="padding:0; cursor:pointer;">
+  <input type="checkbox" name="status_update" value="1" checked style="margin-top:.35rem;" />
+  <span class="civic-option__text">{{status_update_label}}</span>
+</label>
+<blockquote class="civic-h3" style="margin:.75rem 0 0; padding-left:1rem; border-left:3px solid var(--rule-strong);">
+&ldquo;{{status_update_message}}&rdquo;
 </blockquote>
 <input type="hidden" name="status_update_message" value="{{status_update_message}}" />
 </div>
-<br />
 {% endif %}
 
-{% blocktrans with voter_display=voter.display_html_big|safe %}You are logged in as <u>{{voter_display}}</u>{% endblocktrans %}<br /><br />
+<p class="civic-note" style="margin-bottom:1.25rem;">
+{% blocktrans with voter_display=voter.display_html_big|safe %}You are logged in as <u>{{voter_display}}</u>{% endblocktrans %}
+</p>
 
-    <button type="submit" class="button large">{% trans "CAST this ballot" %}</button>
-    <span style="font-size:0.8em;"><br />{% trans "You can cast as many ballots as you want." %}<br />{% trans "Only the last one counts." %}</span>
+    <button type="submit" class="civic-btn civic-btn--primary civic-btn--cast">{% trans "CAST this ballot" %}</button>
+    <p class="civic-note" style="margin-top:.85rem;">{% trans "You can cast as many ballots as you want." %}<br />{% trans "Only the last one counts." %}</p>
 </form>
 
-<p>
-    <button class="button tiny" onclick="if (confirm('Are you sure you want to clear this ballot and NOT cast it?')) {document.location='{% url "election@view" election.uuid %}';}">{% trans "cancel" %}</button><br />
-    <span style="font-size:0.8em;">{% blocktrans %}If you cancel now, your ballot will <em>NOT</em> be recorded.{% endblocktrans %}<br />
-    {% trans "You can start the voting process over again, of course." %}</span>
-</p>
+<div class="civic-panel civic-panel--sunk" style="margin-top:2rem;">
+    <button type="button" class="civic-btn civic-btn--quiet" onclick="if (confirm('Are you sure you want to clear this ballot and NOT cast it?')) {document.location='{% url "election@view" election.uuid %}';}">{% trans "cancel" %}</button>
+    <p class="civic-note" style="margin-top:.75rem;">{% blocktrans %}If you cancel now, your ballot will <em>NOT</em> be recorded.{% endblocktrans %}<br />
+    {% trans "You can start the voting process over again, of course." %}</p>
+</div>
 
 <!-- for now, for CSRF protection, no auto-submit just yet (benadida) -->
 <!-- <script>$('#cast_confirm_form').submit()</script> -->
 
 </div>
   {% else %}
-<p style="font-size:1.4em;">
-  {% trans "voting has stopped, sorry." %}
-</p>
+<div class="civic-banner civic-banner--stop">
+  <p>{% trans "voting has stopped, sorry." %}</p>
+</div>
   {% endif %}
 {% else %}
-<p style="font-size:1.4em;">
-  {% trans "voting has not yet begun, sorry." %}
-</p>
+<div class="civic-banner civic-banner--warn">
+  <p>{% trans "voting has not yet begun, sorry." %}</p>
+</div>
 {% endif %}

@@ -2,20 +2,31 @@
 {% load i18n %}
 {% load timezone_tags %}
 
+{% block body_class %}civic civic-paper{% endblock %}
+
 {% block content %}
+<div class="civic-sheet civic-sheet--narrow civic-enter">
 
-  <h2 class="title">{% blocktrans with election_name=election.name %}Election {{ election_name }} Not Yet Open{% endblocktrans %}</h2>
+  <div class="civic-masthead">
+    <p class="civic-eyebrow">
+      <span class="civic-eyebrow__mark">&#9632;</span>
+      <span>{{ election.name }}</span>
+    </p>
+    <h1>{% blocktrans with election_name=election.name %}Election {{ election_name }} Not Yet Open{% endblocktrans %}</h1>
+  </div>
 
-  <p>
-      {% trans "This election is not yet open." %}
-  </p>
+  <div class="civic-banner civic-banner--warn">
+    <p>{% trans "This election is not yet open." %}</p>
+  </div>
 
-  <p>
-      {% if election.voting_start_at %}{% blocktrans with start_time=election.voting_start_at|utc_time %}Voting start at {{ start_time }}{% endblocktrans %}<br />{% endif %}
-      {% if election.voting_end_at %}{% blocktrans with end_time=election.voting_end_at|utc_time %}Voting end at {{ end_time }}{% endblocktrans %}<br />{% endif %}
-  </p>
+  <dl class="civic-schedule">
+    {% if election.voting_start_at %}<dd>{% blocktrans with start_time=election.voting_start_at|utc_time %}Voting start at {{ start_time }}{% endblocktrans %}</dd>{% endif %}
+    {% if election.voting_end_at %}<dd>{% blocktrans with end_time=election.voting_end_at|utc_time %}Voting end at {{ end_time }}{% endblocktrans %}</dd>{% endif %}
+  </dl>
 
-  <p>
-      <a href="{% url "election@view" election.uuid %}">{% trans "back to the election" %}</a>
-  </p>
+  <div class="civic-actions">
+    <a class="civic-btn civic-btn--quiet" href="{% url "election@view" election.uuid %}">{% trans "back to the election" %}</a>
+  </div>
+
+</div>
 {% endblock %}

@@ -1,37 +1,38 @@
-<h3>{$T.i18n.seal_title}</h3>
+<h2>{$T.i18n.seal_title}</h2>
 
-<div class="card shadow-sm mb-3">
-  <ul class="list-group list-group-flush">
-  {#foreach $T.questions as question}
-  <li class="list-group-item">
-    <div class="d-flex justify-content-between align-items-start">
-      <div>
-        <div class="fw-bold">{$T.i18n.seal_question_label}{$T.question$index + 1}: {$T.question.short_name}</div>
-        {#if $T.choices[$T.question$index].length == 0}
-        <div class="text-body-secondary fst-italic ms-1 mt-1">&#x2610; {$T.i18n.seal_no_choice}</div>
-        {#/if}
-        {#foreach $T.choices[$T.question$index] as choice}
-        <div class="ms-1 mt-1"><span class="text-success">&#x2713;</span> <strong>{$T.choice}</strong></div>
-        {#/for}
-        {#if $T.choices[$T.question$index].length < $T.question.max}
-        <div class="text-body-secondary small mt-1">[{$T.choices[$T.question$index].length} {$T.i18n.seal_selections_out_of} {$T.question.min}-{$T.question.max}]</div>
-        {#/if}
-      </div>
-      <a class="btn btn-sm btn-outline-secondary ms-2 text-nowrap" onclick="BOOTH.show_question({$T.question$index}); return false;" href="#">{$T.i18n.seal_change}</a>
-    </div>
-  </li>
-  {#/for}
-  </ul>
+<ul class="civic-review">
+{#foreach $T.questions as question}
+<li class="civic-review__item">
+  <div>
+    <p class="civic-review__q">{$T.i18n.seal_question_label}{$T.question$index + 1} &mdash; {$T.question.short_name}</p>
+    {#if $T.choices[$T.question$index].length == 0}
+    <div class="civic-review__choice civic-review__blank">&#x2610; {$T.i18n.seal_no_choice}</div>
+    {#/if}
+    {#foreach $T.choices[$T.question$index] as choice}
+    <div class="civic-review__choice"><span class="civic-review__tick">&#x2713;</span> {$T.choice}</div>
+    {#/for}
+    {#if $T.choices[$T.question$index].length < $T.question.max}
+    <p class="civic-review__count">[{$T.choices[$T.question$index].length} {$T.i18n.seal_selections_out_of} {$T.question.min}-{$T.question.max}]</p>
+    {#/if}
+  </div>
+  <a class="civic-btn civic-btn--quiet civic-btn--small" onclick="BOOTH.show_question({$T.question$index}); return false;" href="#">{$T.i18n.seal_change}</a>
+</li>
+{#/for}
+</ul>
+
+<!-- The tracker appears here for the first time, and again on the Django
+     receipt page after casting; both use the same receipt-strip treatment so
+     the voter recognises the string they are meant to keep. -->
+<div class="civic-tracker">
+  <span class="civic-tracker__label">{$T.i18n.seal_tracker_is}</span>
+  <span class="civic-tracker__value">{$T.encrypted_vote_hash}</span>
 </div>
 
-<p>{$T.i18n.seal_tracker_is} <b><tt style="font-size: 1.5em; word-break: break-all;">{$T.encrypted_vote_hash}</tt></b>.
+<div class="civic-actions">
+  <button id="proceed_button" class="civic-btn civic-btn--primary civic-btn--cast" onclick="BOOTH.cast_ballot();">{$T.i18n.seal_proceed_login}</button><span id="loading_div"><img src="loading.gif" id="proceed_loading_img" alt="" /></span>
+</div>
 
-<p>
-  <button id="proceed_button" class="btn btn-primary" onclick="BOOTH.cast_ballot();">{$T.i18n.seal_proceed_login}</button><span id="loading_div"><img src="loading.gif" id="proceed_loading_img" /></span><br />
-</p>
-
-
-<form method="POST" action="{$T.cast_url}" id="send_ballot_form" class="prettyform">
+<form method="POST" action="{$T.cast_url}" id="send_ballot_form">
 <input type="hidden" name="election_uuid" value="{$T.election_uuid}" />
 <input type="hidden" name="election_hash" value="{$T.election_hash}" />
 <textarea name="encrypted_vote" style="display: none;">
@@ -40,20 +41,12 @@
 </form>
 
 {#if $T.election_metadata.use_advanced_audit_features}
-<div class="card mb-3" style="max-width: 420px;">
-  <div class="card-body">
-    <h6 class="card-title mb-1"><a class="link-body-emphasis text-decoration-none" onclick="$('#auditbody').slideToggle(250);" href="#">{$T.i18n.seal_spoil_audit}</a> <span class="badge text-bg-light">{$T.i18n.seal_optional}</span></h6>
-    <div id="auditbody" style="display:none;" class="mt-2">
-    <p>
-    {$T.i18n.seal_spoil_explain}
-    </p>
-    <p>
-    {$T.i18n.seal_spoil_guide}
-    </p>
-    <button onclick="BOOTH.audit_ballot();" class="btn btn-outline-secondary btn-sm">{$T.i18n.seal_spoil_audit}</button>
-    </div>
+<div class="civic-disclosure">
+  <button type="button" class="civic-disclosure__toggle" onclick="$('#auditbody').slideToggle(250); return false;">{$T.i18n.seal_spoil_audit} &mdash; {$T.i18n.seal_optional}</button>
+  <div id="auditbody" style="display:none;" class="civic-disclosure__body">
+    <p>{$T.i18n.seal_spoil_explain}</p>
+    <p>{$T.i18n.seal_spoil_guide}</p>
+    <button onclick="BOOTH.audit_ballot();" class="civic-btn civic-btn--quiet civic-btn--small">{$T.i18n.seal_spoil_audit}</button>
   </div>
 </div>
 {#/if}
-
-<br />

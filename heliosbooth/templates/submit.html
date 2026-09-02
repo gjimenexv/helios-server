@@ -1,35 +1,31 @@
+<h2>{$T.i18n.submit_title}</h2>
 
-<h3>{$T.i18n.submit_title}</h3>
-
-<p>
+<p class="civic-lede">
 {$T.i18n.submit_info_removed_1}<br />
 {$T.i18n.submit_info_removed_2}
 </p>
 
-<p>
-{$T.i18n.submit_tracking_reminder}<br />
-<b><tt style="font-size: 16pt;">{$T.encrypted_vote_hash}</tt></b>
-</p>
+<div class="civic-tracker">
+  <span class="civic-tracker__label">{$T.i18n.submit_tracking_reminder}</span>
+  <span class="civic-tracker__value">{$T.encrypted_vote_hash}</span>
+</div>
 
-<p>
-{$T.i18n.submit_will_submit_to}
-</p>
+<div class="civic-panel civic-panel--sunk">
+  <p class="civic-note">{$T.i18n.submit_will_submit_to}</p>
+  <p><tt>{$T.cast_url}</tt></p>
+</div>
 
-<p><b><tt style="font-size:1.3em;">{$T.cast_url}</tt></b></p>
-
-<p>
+<p class="civic-note">
     {$T.i18n.submit_login_notice}
 </p>
 
-<form method="POST" onsubmit="BOOTH.do_done();" action="{$T.cast_url}" id="send_ballot_form" class="prettyform">
+<form method="POST" onsubmit="BOOTH.do_done();" action="{$T.cast_url}" id="send_ballot_form">
 <input type="hidden" name="election_uuid" value="{$T.election_uuid}" />
 <input type="hidden" name="election_hash" value="{$T.election_hash}" />
 <textarea name="encrypted_vote" style="display: none;">
 {$T.encrypted_vote_json}
 </textarea>
-<div id="submit_button">
-  <label for="submit">&nbsp;</label>
-  <input type="submit" value="{$T.i18n.submit_submit_button}" class="pretty" />
+<div class="civic-actions" id="submit_button">
+  <button type="submit" class="civic-btn civic-btn--primary civic-btn--cast">{$T.i18n.submit_submit_button}</button>
 </div>
 </form>
-

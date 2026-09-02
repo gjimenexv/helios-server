@@ -1,28 +1,37 @@
 {% extends TEMPLATE_BASE %}
 {% load i18n %}
 {% block title %}{{cast_vote.vote_tinyhash}} &mdash; {{election.name}}{% endblock %}
+
+{% block body_class %}civic civic-paper{% endblock %}
+
 {% block content %}
-<h2 class="title">{% blocktrans with vote_tinyhash=cast_vote.vote_tinyhash %}Cast Vote {{vote_tinyhash}}{% endblocktrans %}</h2>
-{% url "election@view" election.uuid as election_view_url %}
-{% blocktrans with election_name=election.name %}cast in <a href="{{election_view_url}}">{{election_name}}</a>{% endblocktrans %}<br />
-{% trans "Fingerprint:" %} <tt>{{cast_vote.vote_hash}}</tt><br />
-by <b><u>
-{% if the_voter.alias %}
-{{the_voter.alias}}
-{% else %}
-{{the_voter.name}}
-{% endif %}
-</u></b>
-<br /><br />
-<a href="#" onclick="$('#castvote_content').slideToggle(250); return false;">{% trans "details" %}</a><br /><br />
-<div style="display:none;" id="castvote_content">
-<textarea cols="100" rows="10">
+<div class="civic-sheet civic-sheet--narrow civic-enter">
+
+  <div class="civic-masthead">
+    <p class="civic-eyebrow">
+      <span class="civic-eyebrow__mark">&#9632;</span>
+      {% url "election@view" election.uuid as election_view_url %}
+      <span>{% blocktrans with election_name=election.name %}cast in <a href="{{election_view_url}}">{{election_name}}</a>{% endblocktrans %}</span>
+    </p>
+    <h1>{% blocktrans with vote_tinyhash=cast_vote.vote_tinyhash %}Cast Vote {{vote_tinyhash}}{% endblocktrans %}</h1>
+  </div>
+
+  <div class="civic-tracker">
+    <span class="civic-tracker__label">{% trans "Fingerprint:" %}</span>
+    <span class="civic-tracker__value">{{cast_vote.vote_hash}}</span>
+    <div class="civic-tracker__foot">
+      <p>by <b>{% if the_voter.alias %}{{the_voter.alias}}{% else %}{{the_voter.name}}{% endif %}</b></p>
+    </div>
+  </div>
+
+  <div class="civic-disclosure">
+    <button type="button" class="civic-disclosure__toggle" onclick="$('#castvote_content').slideToggle(250); return false;">{% trans "details" %}</button>
+    <div class="civic-disclosure__body" style="display:none;" id="castvote_content">
+      <textarea class="civic-raw" rows="12" readonly>
 {{vote_content}}
-</textarea>
+      </textarea>
+    </div>
+  </div>
+
 </div>
-<br /><br />
-
-
-
-
 {% endblock %}
