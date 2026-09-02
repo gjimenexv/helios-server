@@ -444,12 +444,16 @@ def new_trustee_helios(request, election):
   """
   Make Helios a trustee of the election
   """
+  check_csrf(request)
+
   election.generate_trustee(ELGAMAL_PARAMS)
   return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(url_names.election.ELECTION_TRUSTEES_VIEW, args=[election.uuid]))
   
 @election_admin(frozen=False)
 def delete_trustee(request, election):
-  trustee = Trustee.get_by_election_and_uuid(election, request.GET['uuid'])
+  check_csrf(request)
+
+  trustee = Trustee.get_by_election_and_uuid(election, request.POST['uuid'])
   trustee.delete()
   return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(url_names.election.ELECTION_TRUSTEES_VIEW, args=[election.uuid]))
 
@@ -598,8 +602,10 @@ def trustee_login(request, election_short_name, trustee_email, trustee_secret):
 
 @election_admin()
 def trustee_send_url(request, election, trustee_uuid):
+  check_csrf(request)
+
   trustee = Trustee.get_by_election_and_uuid(election, trustee_uuid)
-  
+
   url = settings.SECURE_URL_HOST + reverse(url_names.TRUSTEE_LOGIN, args=[election.short_name, trustee.email, trustee.secret])
   
   body = _("""
@@ -630,6 +636,8 @@ def trustee_check_sk(request, election, trustee):
 @trustee_check
 def trustee_upload_pk(request, election, trustee):
   if request.method == "POST":
+    check_csrf(request)
+
     # get the public key and the hash, and add it
     public_key_and_proof = utils.from_json(request.POST['public_key_json'])
     trustee.public_key = algs.EGPublicKey.fromJSONDict(public_key_and_proof['public_key'])
@@ -723,6 +731,8 @@ def password_voter_login(request, election):
                             'password_login_form': password_login_form,
                             'bad_voter_login' : bad_voter_login})
   
+  check_csrf(request)
+
   login_url = request.GET.get('login_url', None)
 
   if not login_url:
@@ -1157,6 +1167,8 @@ def voter_delete(request, election, voter_uuid):
   blocked once tallying has started or election has been tallied,
   as modifying voters after vote counting begins would compromise election integrity.
   """
+  check_csrf(request)
+
   can_delete, _ = election.can_modify_voters()
   if not can_delete:
     raise PermissionDenied()
@@ -1217,9 +1229,11 @@ def one_election_set_reg(request, election):
   """
   Set whether this is open registration or not
   """
+  check_csrf(request)
+
   # only allow this for public elections
   if not election.private_p:
-    open_p = bool(int(request.GET['open_p']))
+    open_p = bool(int(request.POST['open_p']))
     election.openreg = open_p
     election.save()
   
@@ -1230,12 +1244,13 @@ def one_election_set_featured(request, election):
   """
   Set whether this is a featured election or not
   """
+  check_csrf(request)
 
   user = get_user(request)
   if not user_can_feature_election(user, election):
     raise PermissionDenied()
 
-  featured_p = bool(int(request.GET['featured_p']))
+  featured_p = bool(int(request.POST['featured_p']))
   election.featured_p = featured_p
   election.save()
   
@@ -1243,8 +1258,9 @@ def one_election_set_featured(request, election):
 
 @election_admin()
 def one_election_archive(request, election):
+  check_csrf(request)
 
-  archive_p = request.GET.get('archive_p', True)
+  archive_p = request.POST.get('archive_p', True)
 
   if bool(int(archive_p)):
     election.archived_at = datetime.datetime.utcnow()
@@ -1271,9 +1287,8 @@ def one_election_delete(request, election):
 
 @election_admin()
 def one_election_copy(request, election):
-  # FIXME: make this a POST and CSRF protect it
-  # check_csrf(request)
-  
+  check_csrf(request)
+
   # new short name by uuid, because it's easier and the user can change it.
   new_uuid = uuid.uuid4()
   new_short_name = new_uuid
@@ -1496,8 +1511,8 @@ def one_election_set_result_and_proof(request, election):
   if election.tally_type != "homomorphic" or election.encrypted_tally == None:
     return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(url_names.election.ELECTION_VIEW, args=[election.election_id]))
 
-  # FIXME: check csrf
-  
+  check_csrf(request)
+
   election.result = utils.from_json(request.POST['result'])
   election.result_proof = utils.from_json(request.POST['result_proof'])
   election.save()
@@ -1703,6 +1718,8 @@ def voters_eligibility(request, election):
     # this shouldn't happen, only POSTs
     return HttpResponseRedirect("/")
 
+  check_csrf(request)
+
   # for now, private elections cannot change eligibility
   if election.private_p:
     return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(voters_list_pretty, args=[election.uuid]))
@@ -1744,6 +1761,8 @@ def voters_upload(request, election):
     return render_template(request, 'voters_upload', {'election': election, 'error': request.GET.get('e',None)})
     
   if request.method == "POST":
+    check_csrf(request)
+
     if bool(request.POST.get('confirm_p', 0)):
       # launch the background task to parse that file
       tasks.voter_file_process.delay(voter_file_id = request.session['voter_file_id'])
@@ -1778,11 +1797,13 @@ def voters_upload_cancel(request, election):
   """
   cancel upload of CSV file
   """
+  check_csrf(request)
+
   voter_file_id = request.session.get('voter_file_id', None)
   if voter_file_id:
     vf = VoterFile.objects.get(id = voter_file_id)
     vf.delete()
-  del request.session['voter_file_id']
+    del request.session['voter_file_id']
 
   return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(url_names.election.ELECTION_VIEW, args=[election.uuid]))
 
@@ -1841,6 +1862,8 @@ def voters_email(request, election):
     if voter:
       email_form.fields['send_to'].widget = email_form.fields['send_to'].hidden_widget()
   else:
+    check_csrf(request)
+
     email_form = forms.EmailVotersForm(request.POST)
     
     if email_form.is_valid():

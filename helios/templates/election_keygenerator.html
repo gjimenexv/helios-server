@@ -161,6 +161,7 @@ function show_pk() {
 </div>
 
 <form method="post" id="pk_form" action="{% url "election@trustee@upload-pk" election.uuid trustee.uuid %}">
+<input type="hidden" name="csrf_token" value="{{csrf_token}}" />
 <h3>{% trans "Your Public Key" %}</h3>
 <p>
     {% trans "It's time to upload the public key to the server." %}

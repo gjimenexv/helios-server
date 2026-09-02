@@ -4,6 +4,7 @@ Unit Tests for Helios
 
 import datetime
 import logging
+import random as stdlib_random
 import re
 import uuid
 from urllib.parse import urlencode
@@ -20,8 +21,90 @@ import helios.models as models
 import helios.utils as utils
 import helios.views as views
 from helios import tasks
-from helios.crypto import electionalgs
+from helios.crypto import algs, electionalgs
+from helios.crypto import elgamal as crypto_elgamal
+from helios.crypto import utils as crypto_utils
+from helios.workflows import homomorphic
 from helios_auth import models as auth_models
+
+
+class RandomMpzLtTests(TestCase):
+    """
+    Tests for helios.crypto.utils.random_mpz_lt, which must sample uniformly
+    from [0, maximum) -- every exponent in the system is drawn through it.
+    """
+
+    # the exponent modulus every real draw is bounded by
+    Q = views.ELGAMAL_PARAMS.q
+
+    class ScriptedRandom(object):
+        """
+        Replays a canned sequence of draws and records the bit counts asked for.
+
+        getrandbits is honest about its width -- each value is masked to the
+        number of bits requested, exactly as a real generator would -- so a test
+        can tell a 255-bit draw from a 256-bit one by what comes back. Running
+        the sequence dry raises rather than blocking, so a regression that stops
+        the rejection loop from terminating fails the test instead of hanging it.
+        """
+
+        def __init__(self, values):
+            self.values = list(values)
+            self.requested_bits = []
+
+        def getrandbits(self, n_bits):
+            self.requested_bits.append(n_bits)
+            if not self.values:
+                raise AssertionError(
+                    "random_mpz_lt drew more times than the test scripted; "
+                    "the rejection loop is not terminating")
+            return self.values.pop(0) & ((1 << n_bits) - 1)
+
+    def test_samples_the_top_of_the_range(self):
+        """
+        Regression test: sizing the draw with floor(log2(q)) asked for one bit
+        too few and capped the output below 2^(bit_length - 1), so the top 5.6%
+        of [0, q) was never sampled. That made the simulated branch of a
+        disjunctive proof distinguishable from the real one, which leaks the
+        plaintext.
+
+        q - 1 lies in that top slice, so it survives a full-width draw but loses
+        its high bit to a one-bit-short one -- enough to tell the two sizings
+        apart without any real randomness.
+        """
+        n_bits = self.Q.bit_length()
+        top_slice = 1 << (n_bits - 1)
+        # q is prime, hence not a power of two, so q - 1 is inside the slice
+        self.assertGreater(self.Q - 1, top_slice)
+
+        scripted = self.ScriptedRandom([self.Q - 1])
+        result = crypto_utils.random_mpz_lt(self.Q, strong_random=scripted)
+        self.assertEqual(scripted.requested_bits, [n_bits])
+        self.assertEqual(result, self.Q - 1)
+        self.assertGreaterEqual(result, top_slice)
+
+    def test_redraws_values_at_or_above_maximum(self):
+        """Draws >= maximum are discarded and redrawn, keeping the result in range."""
+        n_bits = self.Q.bit_length()
+        scripted = self.ScriptedRandom([self.Q, self.Q + 1, self.Q - 1])
+        result = crypto_utils.random_mpz_lt(self.Q, strong_random=scripted)
+        self.assertEqual(result, self.Q - 1)
+        self.assertEqual(scripted.requested_bits, [n_bits] * 3)
+
+    def test_rejects_non_positive_maximum(self):
+        """
+        No integer satisfies 0 <= res < maximum when maximum <= 0, so the
+        rejection loop would spin forever. Fail loudly instead, as the previous
+        math.log implementation did.
+        """
+        for maximum in (0, -1, -self.Q):
+            with self.subTest(maximum=maximum):
+                # a scripted generator turns a regression here into a failure
+                # rather than a hang
+                scripted = self.ScriptedRandom([0, 0, 0])
+                with self.assertRaises(ValueError):
+                    crypto_utils.random_mpz_lt(maximum, strong_random=scripted)
+                self.assertEqual(scripted.requested_bits, [])
 
 
 class ElectionModelTests(TestCase):
@@ -563,6 +646,170 @@ class CastVoteModelTests(TestCase):
     def test_cast_vote(self):
         pass
 
+class BallotGroupMembershipTests(TestCase):
+    """
+    A cast ballot's ciphertext elements must lie in the order-q subgroup named by
+    the election public key. The Helios parameters use a 2048-bit p with a 256-bit
+    q, so p-1 has a large cofactor and elements of small order do exist; the proof
+    of knowledge on its own does not confine alpha and beta to the subgroup.
+
+    A cast ballot deserializes into crypto.elgamal by way of datatypes.legacy, so
+    that is the implementation exercised here.
+    """
+    allow_database_queries = False
+
+    # fixed so that a failure reproduces exactly; no assertion depends on the
+    # particular values drawn
+    SEED = 20260815
+
+    def setUp(self):
+        params = views.ELGAMAL_PARAMS
+        self.p, self.q, self.g = params.p, params.q, params.g
+        self.rand = stdlib_random.Random(self.SEED)
+
+        self.pk = crypto_elgamal.PublicKey()
+        self.pk.p, self.pk.q, self.pk.g = self.p, self.q, self.g
+        self.pk.y = pow(self.g, self.rand.randrange(2, self.q), self.p)
+
+        self.plaintexts = homomorphic.EncryptedAnswer.generate_plaintexts(self.pk)
+
+        # p-1 has order 2, and is a witness that p is not a safe prime
+        self.small_order_element = self.p - 1
+
+    def encrypt(self, exponent, randomness, outside_subgroup=False):
+        """
+        encrypt g^exponent, optionally pushing alpha out of the order-q subgroup
+        """
+        ciphertext = crypto_elgamal.Ciphertext()
+        ciphertext.pk = self.pk
+        ciphertext.alpha = pow(self.g, randomness, self.p)
+        if outside_subgroup:
+            ciphertext.alpha = (ciphertext.alpha * self.small_order_element) % self.p
+        ciphertext.beta = (pow(self.pk.y, randomness, self.p) * pow(self.g, exponent, self.p)) % self.p
+        return ciphertext
+
+    def simulate_proof(self, ciphertext, plaintext, challenge):
+        """
+        the textbook simulation, spelled out so that the whole forgery is driven by
+        this test's seeded randomness rather than the process CSPRNG
+        """
+        proof = crypto_elgamal.ZKProof()
+        proof.challenge = challenge
+        proof.response = self.rand.randrange(self.q)
+
+        beta_over_m = (ciphertext.beta * pow(plaintext.m, -1, self.p)) % self.p
+        proof.commitment = {
+            'A': (pow(self.g, proof.response, self.p)
+                  * pow(pow(ciphertext.alpha, challenge, self.p), -1, self.p)) % self.p,
+            'B': (pow(self.pk.y, proof.response, self.p)
+                  * pow(pow(beta_over_m, challenge, self.p), -1, self.p)) % self.p,
+        }
+        return proof
+
+    def forge_disjunctive_proof(self, ciphertext, real_index, randomness):
+        """
+        A disjunctive proof for a ciphertext whose alpha carries a factor of order 2.
+        Every stored challenge is ground to be even, so that factor raised to the
+        challenge is 1 and cancels out of each verification equation. It takes a
+        couple of attempts, which is why the subgroup check cannot be left to the
+        proof itself.
+        """
+        for _ in range(100):
+            proofs = [
+                None if index == real_index else self.simulate_proof(
+                    ciphertext, self.plaintexts[index], 2 * self.rand.randrange(1, self.q // 2))
+                for index in range(len(self.plaintexts))
+            ]
+
+            commitment_randomness = self.rand.randrange(self.q)
+            real_proof = crypto_elgamal.ZKProof()
+            real_proof.commitment = {
+                'A': pow(self.g, commitment_randomness, self.p),
+                'B': pow(self.pk.y, commitment_randomness, self.p),
+            }
+            proofs[real_index] = real_proof
+
+            challenge = (algs.EG_disjunctive_challenge_generator([p.commitment for p in proofs])
+                         - sum(p.challenge for i, p in enumerate(proofs) if i != real_index)) % self.q
+            if challenge % 2:
+                continue
+
+            real_proof.challenge = challenge
+            real_proof.response = (commitment_randomness + randomness * challenge) % self.q
+            return crypto_elgamal.ZKDisjunctiveProof(proofs)
+
+        self.fail("could not grind an even challenge")
+
+    def build_answer(self, forged):
+        """
+        a single question, two answers, voting for the first one
+        """
+        randomness = [self.rand.randrange(self.q) for _ in range(2)]
+        choices = [self.encrypt(1, randomness[0], outside_subgroup=forged),
+                   self.encrypt(0, randomness[1])]
+
+        if forged:
+            prove = self.forge_disjunctive_proof
+        else:
+            def prove(ciphertext, real_index, r):
+                return ciphertext.generate_disjunctive_encryption_proof(
+                    self.plaintexts, real_index, r, algs.EG_disjunctive_challenge_generator)
+
+        answer = homomorphic.EncryptedAnswer()
+        answer.choices = choices
+        answer.individual_proofs = [prove(choices[0], 1, randomness[0]),
+                                    prove(choices[1], 0, randomness[1])]
+        answer.overall_proof = prove(choices[0] * choices[1], 1,
+                                     (randomness[0] + randomness[1]) % self.q)
+        return answer
+
+    def test_well_formed_answer_verifies(self):
+        self.assertTrue(self.build_answer(forged=False).verify(self.pk, min=0, max=1))
+
+    def test_answer_outside_subgroup_is_rejected(self):
+        answer = self.build_answer(forged=True)
+
+        # the ballot is well formed apart from the subgroup violation: every proof
+        # equation still holds, so only the membership check can catch it
+        self.assertNotEqual(pow(answer.choices[0].alpha, self.q, self.p), 1)
+        for choice_num, choice in enumerate(answer.choices):
+            self.assertTrue(choice.verify_disjunctive_encryption_proof(
+                self.plaintexts, answer.individual_proofs[choice_num],
+                algs.EG_disjunctive_challenge_generator))
+
+        self.assertFalse(answer.verify(self.pk, min=0, max=1))
+
+    def test_cast_ballots_deserialize_into_this_implementation(self):
+        self.assertIs(datatypes.legacy.EGCiphertext.WRAPPED_OBJ_CLASS, crypto_elgamal.Ciphertext)
+
+    def test_group_membership_check_agrees_across_implementations(self):
+        """
+        it was drift between the two ElGamal implementations that let this through
+        """
+        randomness = self.rand.randrange(self.q)
+        for ciphertext_class in (crypto_elgamal.Ciphertext, algs.EGCiphertext):
+            well_formed = self.encrypt(1, randomness)
+            outside = self.encrypt(1, randomness, outside_subgroup=True)
+            for ciphertext in (well_formed, outside):
+                ciphertext.__class__ = ciphertext_class
+
+            self.assertTrue(well_formed.check_group_membership(self.pk))
+            self.assertFalse(outside.check_group_membership(self.pk))
+
+    def test_dh_proof_verify_uses_the_moduli_it_is_given(self):
+        """
+        both implementations of the DH tuple proof must verify from their arguments
+        rather than from attributes the proof object does not carry
+        """
+        secret = self.rand.randrange(2, self.q)
+        for proof_class in (crypto_elgamal.ZKProof, algs.EGZKProof):
+            proof = proof_class.generate(self.g, self.pk.y, secret, self.p, self.q,
+                                         algs.EG_fiatshamir_challenge_generator)
+            self.assertTrue(proof.verify(
+                self.g, self.pk.y, pow(self.g, secret, self.p), pow(self.pk.y, secret, self.p),
+                self.p, self.q, algs.EG_fiatshamir_challenge_generator))
+
+
 class DatatypeTests(TestCase):
     fixtures = ['users.json', 'election.json']
     allow_database_queries = True
@@ -806,7 +1053,8 @@ class ElectionBlackboxTests(WebTest):
         self.setup_login(from_scratch=True, user_id='mccio@github.com', user_type='google')
         response = self.client.get("/helios/stats/", follow=False)
         self.assertStatusCode(response, 200)
-        response = self.client.get("/helios/stats/force-queue", follow=False)
+        response = self.client.post("/helios/stats/force-queue", {
+                "csrf_token": self.client.session['csrf_token']}, follow=False)
         self.assertRedirects(response, "/helios/stats/")
         response = self.client.get("/helios/stats/elections", follow=False)
         self.assertStatusCode(response, 200)
@@ -860,7 +1108,7 @@ class ElectionBlackboxTests(WebTest):
         # add a few voters with an improperly placed email address
         FILE = "helios/fixtures/voter-badfile.csv"
         voters_file = open(FILE)
-        response = self.client.post("/helios/elections/%s/voters/upload" % election_id, {'voters_file': voters_file})
+        response = self.client.post("/helios/elections/%s/voters/upload" % election_id, {'voters_file': voters_file, 'csrf_token': self.client.session['csrf_token']})
         voters_file.close()
         self.assertContains(response, "HOLD ON")
 
@@ -870,18 +1118,18 @@ class ElectionBlackboxTests(WebTest):
         # I just needed some unicode quickly.
         FILE = "helios/fixtures/voter-file.csv"
         voters_file = open(FILE)
-        response = self.client.post("/helios/elections/%s/voters/upload" % election_id, {'voters_file': voters_file})
+        response = self.client.post("/helios/elections/%s/voters/upload" % election_id, {'voters_file': voters_file, 'csrf_token': self.client.session['csrf_token']})
         voters_file.close()
         self.assertContains(response, "first few rows of this file")
 
         # now we confirm the upload
-        response = self.client.post("/helios/elections/%s/voters/upload" % election_id, {'confirm_p': "1"})
+        response = self.client.post("/helios/elections/%s/voters/upload" % election_id, {'confirm_p': "1", 'csrf_token': self.client.session['csrf_token']})
         self.assertRedirects(response, "/helios/elections/%s/voters/list" % election_id)
 
         # Try a latin-1 encoded file
         FILE = "helios/fixtures/voter-file-latin1.csv"
         voters_file = open(FILE, mode='rb')
-        response = self.client.post("/helios/elections/%s/voters/upload" % election_id, {'voters_file': voters_file})
+        response = self.client.post("/helios/elections/%s/voters/upload" % election_id, {'voters_file': voters_file, 'csrf_token': self.client.session['csrf_token']})
         voters_file.close()
         self.assertContains(response, "first few rows of this file")
         
@@ -1180,14 +1428,14 @@ class ElectionBlackboxTests(WebTest):
         with open("helios/fixtures/voter-file.csv") as f:
             response = self.client.post(
                 "/helios/elections/%s/voters/upload" % election_id,
-                {"voters_file": f}
+                {"voters_file": f, "csrf_token": self.client.session["csrf_token"]}
             )
         self.assertContains(response, "first few rows")
 
         # Confirm first upload
         response = self.client.post(
             "/helios/elections/%s/voters/upload" % election_id,
-            {"confirm_p": "1"}
+            {"confirm_p": "1", "csrf_token": self.client.session["csrf_token"]}
         )
         self.assertRedirects(response, "/helios/elections/%s/voters/list" % election_id)
 
@@ -1201,14 +1449,14 @@ class ElectionBlackboxTests(WebTest):
         with open("helios/fixtures/voter-file-2.csv") as f:
             response = self.client.post(
                 "/helios/elections/%s/voters/upload" % election_id,
-                {"voters_file": f}
+                {"voters_file": f, "csrf_token": self.client.session["csrf_token"]}
             )
         self.assertContains(response, "first few rows")
 
         # Confirm second upload
         response = self.client.post(
             "/helios/elections/%s/voters/upload" % election_id,
-            {"confirm_p": "1"}
+            {"confirm_p": "1", "csrf_token": self.client.session["csrf_token"]}
         )
         self.assertRedirects(response, "/helios/elections/%s/voters/list" % election_id)
 
@@ -1255,14 +1503,14 @@ class ElectionBlackboxTests(WebTest):
         with open("helios/fixtures/voter-file.csv") as f:
             response = self.client.post(
                 "/helios/elections/%s/voters/upload" % election_id,
-                {"voters_file": f}
+                {"voters_file": f, "csrf_token": self.client.session["csrf_token"]}
             )
         self.assertContains(response, "first few rows")
 
         # Confirm upload
         response = self.client.post(
             "/helios/elections/%s/voters/upload" % election_id,
-            {"confirm_p": "1"}
+            {"confirm_p": "1", "csrf_token": self.client.session["csrf_token"]}
         )
         self.assertRedirects(response, "/helios/elections/%s/voters/list" % election_id)
 
@@ -1323,11 +1571,11 @@ class ElectionBlackboxTests(WebTest):
         with open("helios/fixtures/voter-file.csv") as f:
             self.client.post(
                 "/helios/elections/%s/voters/upload" % election_id,
-                {"voters_file": f}
+                {"voters_file": f, "csrf_token": self.client.session["csrf_token"]}
             )
         self.client.post(
             "/helios/elections/%s/voters/upload" % election_id,
-            {"confirm_p": "1"}
+            {"confirm_p": "1", "csrf_token": self.client.session["csrf_token"]}
         )
 
         # Add a question
@@ -3330,7 +3578,8 @@ class VoterDeleteRestrictionTests(WebTest):
         """Voter deletion should be allowed before tallying starts"""
         self.setup_login()
         response = self.client.post("/helios/elections/%s/voters/%s/delete" % (
-            self.election.uuid, self.voter.uuid))
+            self.election.uuid, self.voter.uuid),
+            {"csrf_token": self.client.session["csrf_token"]})
         # Should redirect (302) on successful deletion
         self.assertStatusCode(response, 302)
 
@@ -3341,7 +3590,8 @@ class VoterDeleteRestrictionTests(WebTest):
         self.election.save()
 
         response = self.client.post("/helios/elections/%s/voters/%s/delete" % (
-            self.election.uuid, self.voter.uuid))
+            self.election.uuid, self.voter.uuid),
+            {"csrf_token": self.client.session["csrf_token"]})
         self.assertStatusCode(response, 403)
 
     def test_voters_list_shows_delete_button_when_allowed(self):
@@ -3350,8 +3600,8 @@ class VoterDeleteRestrictionTests(WebTest):
 
         response = self.client.get("/helios/elections/%s/voters/list" % self.election.uuid)
         self.assertStatusCode(response, 200)
-        # Check for the delete link with [x] text
-        self.assertContains(response, '>x</a>]')
+        # Check for the delete [x] button (a POST form, so that it carries a CSRF token)
+        self.assertContains(response, '>x</button></form>]')
 
     def test_voters_list_hides_delete_button_when_blocked(self):
         """Voter list should hide delete [x] button when tallying has started"""
@@ -3361,6 +3611,6 @@ class VoterDeleteRestrictionTests(WebTest):
 
         response = self.client.get("/helios/elections/%s/voters/list" % self.election.uuid)
         self.assertStatusCode(response, 200)
-        # Check that the delete link is not present
-        self.assertNotContains(response, '>x</a>]')
+        # Check that the delete button is not present
+        self.assertNotContains(response, '>x</button></form>]')
 
