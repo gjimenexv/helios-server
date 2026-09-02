@@ -1531,3 +1531,70 @@ body.civic #proceed_loading_img {
 .civic-adminbar__row:last-child {
   margin-bottom: 0;
 }
+
+/* ==========================================================================
+   24. Buttons rendered as links
+
+   Several actions are anchors wearing .civic-btn (Vote in this election, the
+   audit-panel links, the return links). `.civic a` in section 4 is one class
+   plus one element, which outranks the single class on .civic-btn--primary, so
+   without these the label is painted in the accent color -- invisible on a
+   button filled with that same color. Anything that sets a button label colour
+   has to be repeated here at anchor specificity.
+   ========================================================================== */
+
+.civic a.civic-btn,
+.civic a.civic-btn:hover,
+.civic a.civic-btn:focus-visible {
+  color: var(--ink);
+}
+
+.civic a.civic-btn--primary,
+.civic a.civic-btn--primary:hover,
+.civic a.civic-btn--primary:focus-visible {
+  color: #fff;
+}
+
+.civic a.civic-btn--quiet {
+  color: var(--ink-soft);
+}
+
+.civic a.civic-btn--quiet:hover,
+.civic a.civic-btn--quiet:focus-visible {
+  color: var(--ink);
+}
+
+/* Same hazard in the shared site shell: its navbar and footer sit on the brand
+   color, and their links are not .civic-* so they fall through to `.civic a`.
+   Bootstrap's .text-white covers the navbar, but only while Bootstrap loads --
+   and the footer's Foundation .button has no such guard at all. */
+body.civic .navbar .navbar-brand,
+body.civic .navbar .nav-link,
+body.civic .navbar .nav-link:hover {
+  color: #fff;
+}
+
+body.civic #footer .button,
+body.civic #footer .button:hover {
+  color: #fff;
+}
+
+/* The timezone widget (helios/media/timezone-display.css) hardcodes a system
+   font and a blue local-time link, which reads as off-palette next to an
+   election's own brand color. Retint it to the tokens on civic pages only. */
+body.civic .tz-display {
+  font-family: var(--mono);
+  font-size: inherit;
+}
+
+body.civic .tz-utc {
+  color: var(--ink-soft);
+}
+
+body.civic .tz-local {
+  color: var(--accent);
+}
+
+body.civic .tz-separator {
+  color: var(--ink-faint);
+}
