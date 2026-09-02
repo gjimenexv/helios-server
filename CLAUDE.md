@@ -203,3 +203,17 @@ To enable Google Auth locally: create OAuth2 credentials at https://console.deve
 - Fixtures are in `helios/fixtures/` (includes legacy-format election JSON for backward-compatibility regression tests)
 - Test classes: `ElectionModelTests`, `VoterModelTests`, `ElectionBlackboxTests`, etc.
 - CI (`.github/workflows/ci.yml`) runs against Python 3.13 / PostgreSQL 16 with `uv run python -Wall manage.py test -v 2 --settings=settings_ci`; there is no separate lint/format CI step.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on the `origin` fork, `gjimenexv/helios-server`, via the `gh` CLI; `upstream` (`benadida/helios-server`) is read-only context. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical roles, using their default label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
