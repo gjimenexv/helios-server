@@ -9,10 +9,13 @@ Ben Adida
 import copy
 import csv
 import datetime
+import hashlib
+import secrets
 import uuid
 
 import bleach
 from django.conf import settings
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import models, transaction
 from validate_email import validate_email
 
@@ -156,6 +159,15 @@ class Election(HeliosModel):
 
   # downloadable election info
   election_info_url = models.CharField(max_length=300, null=True)
+
+  # branding: falls back to the site-wide default (settings.MAIN_LOGO_URL /
+  # DEFAULT_PRIMARY_COLOR / DEFAULT_ACCENT_COLOR) when unset. See
+  # helios/branding.py for how these are resolved and validated.
+  logo = models.ImageField(upload_to='election_logos/%Y/%m/%d', null=True, blank=True)
+  primary_color = models.CharField(max_length=7, null=True, blank=True,
+                                    help_text="Hex color, e.g. #1a73e8")
+  accent_color = models.CharField(max_length=7, null=True, blank=True,
+                                   help_text="Hex color, e.g. #d93025")
 
   # Custom managers
   objects = ElectionManager()  # default manager excludes deleted elections
@@ -897,9 +909,10 @@ class VoterFile(models.Model):
               continue
           # create the voter
           voter_uuid = str(uuid.uuid4())
+          # no credential is created here: the voter sets their own password
+          # through the single-use link they receive by email.
           new_voter = Voter(uuid=voter_uuid, user = None, voter_login_id = voter['voter_id'],
               voter_name = voter['name'], voter_email = voter['email'], election = self.election)
-          new_voter.generate_password()
           election=self.election
           if election.use_voter_aliases:
               # Use transaction to ensure alias assignment is atomic
@@ -943,14 +956,24 @@ class Voter(HeliosModel):
   # but a dynamic user object is created automatically
   user = models.ForeignKey('helios_auth.User', null=True, on_delete=models.CASCADE)
 
-  # if user is null, then you need a voter login ID and password
+  # if user is null, then you need a voter login ID and password.
+  # the password itself is never stored: only a one-way hash of it, so that
+  # nobody -- not even the election administrator or a database operator --
+  # can read a voter's password.
   voter_login_id = models.CharField(max_length = 100, null=True)
-  voter_password = models.CharField(max_length = 100, null=True)
+  voter_password_hash = models.CharField(max_length = 256, null=True)
   voter_name = models.CharField(max_length = 200, null=True)
   voter_email = models.CharField(max_length = 250, null=True)
 
   # if election uses aliases
   alias = models.CharField(max_length = 100, null=True)
+
+  # single-use access link emailed to the voter so they can set their own
+  # password. only the token's hash is stored, so a leaked database (or a
+  # leaked backup) does not yield a usable link.
+  login_token_hash = models.CharField(max_length = 64, null=True, db_index=True)
+  login_token_issued_at = models.DateTimeField(null=True)
+  login_token_used_at = models.DateTimeField(null=True)
 
   # we keep a copy here for easy tallying
   vote = LDObjectField(type_hint = 'legacy/EncryptedVote', null=True)
@@ -1114,11 +1137,71 @@ class Voter(HeliosModel):
   def can_update_status(self):
     return self.get_user().can_update_status()
 
-  def generate_password(self, length=10):
-    if self.voter_password:
-      raise Exception("password already exists")
+  @property
+  def has_password(self):
+    return bool(self.voter_password_hash)
 
-    self.voter_password = utils.random_string(length, alphabet='abcdefghjkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789')
+  def set_password(self, raw_password):
+    """
+    store only a one-way hash of the voter's chosen password.
+    the cleartext password never touches the database.
+    """
+    self.voter_password_hash = make_password(raw_password)
+
+  def check_password(self, raw_password):
+    if not self.voter_password_hash:
+      return False
+    return check_password(raw_password, self.voter_password_hash)
+
+  @classmethod
+  def hash_login_token(cls, token):
+    # the token is 256 bits of entropy already, so a plain sha256 is the right
+    # primitive here: no need for (and no benefit from) a slow password hash.
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+  def generate_login_token(self):
+    """
+    issue a fresh single-use access token, invalidating any previous one, and
+    return it in the clear. the caller is expected to email it and drop it:
+    this is the only moment at which the token exists outside the voter's inbox.
+    """
+    token = secrets.token_urlsafe(32)
+    self.login_token_hash = self.hash_login_token(token)
+    self.login_token_issued_at = datetime.datetime.utcnow()
+    self.login_token_used_at = None
+    return token
+
+  @property
+  def login_token_expires_at(self):
+    if not self.login_token_issued_at:
+      return None
+    return self.login_token_issued_at + datetime.timedelta(hours=settings.HELIOS_VOTER_TOKEN_EXPIRY_HOURS)
+
+  @property
+  def login_token_is_valid(self):
+    if not self.login_token_hash or self.login_token_used_at:
+      return False
+    return datetime.datetime.utcnow() < self.login_token_expires_at
+
+  def consume_login_token(self):
+    self.login_token_used_at = datetime.datetime.utcnow()
+    self.login_token_hash = None
+
+  @classmethod
+  def get_by_election_and_login_token(cls, election, token):
+    """
+    look a voter up by the hash of their access token. returns None if the
+    token is unknown, already used, or expired.
+    """
+    if not token:
+      return None
+
+    try:
+      voter = cls.objects.get(election=election, login_token_hash=cls.hash_login_token(token))
+    except cls.DoesNotExist:
+      return None
+
+    return voter if voter.login_token_is_valid else None
 
   def store_vote(self, cast_vote):
     # only store the vote if it's cast later than the current one

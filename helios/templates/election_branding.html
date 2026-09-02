@@ -1,0 +1,25 @@
+{% extends TEMPLATE_BASE %}
+{% load i18n %}
+{% block content %}
+
+  <h2 class="title">{{election.name}} &mdash; {% trans "Branding" %} <span style="font-size:0.7em;">[<a href="{% url "election@view" election.uuid %}">{% trans "cancel" %}</a>]</span></h2>
+
+  <p>{% trans "Customize the logo and colors shown on this election's pages. Leave a field blank to use the site default." %}</p>
+
+  {% if election.logo %}
+  <p>
+    <img src="{{election.logo.url}}" alt="{% trans "current logo" %}" style="max-height: 80px; max-width: 300px;" />
+  </p>
+  {% endif %}
+
+  <form class="prettyform" action="" method="POST" id="election_branding_form" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{csrf_token}}" />
+    <table class="pretty">
+     {{election_form.as_table}}
+     </table>
+  <div>
+  <label for="">&nbsp;</label><input class="button" type="submit" value="{% trans "Save" %}" id="save_button" />
+  </div>
+  </form>
+
+{% endblock %}

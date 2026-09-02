@@ -13,6 +13,7 @@ from functools import update_wrapper
 
 import helios
 from . import utils
+from .branding import get_election_branding, get_site_branding
 from helios_auth.security import get_user
 
 ##
@@ -41,6 +42,9 @@ def prepare_vars(request, values):
   vars_with_user['TEMPLATE_BASE'] = helios.TEMPLATE_BASE
   vars_with_user['CURRENT_URL'] = request.path
   vars_with_user['SECURE_URL_HOST'] = settings.SECURE_URL_HOST
+
+  election = vars_with_user.get('election')
+  vars_with_user['branding'] = get_election_branding(election) if election else get_site_branding()
 
   return vars_with_user
 

@@ -19,6 +19,10 @@ urlpatterns = [
     re_path(r'static/helios/(?P<path>.*)$', serve, {'document_root' : settings.ROOT_PATH + '/helios/media'}),
     re_path(r'static/(?P<path>.*)$', serve, {'document_root' : settings.ROOT_PATH + '/server_ui/media'}),
 
+    # user-uploaded media (election logos, etc.)
+    # SHOULD BE REPLACED BY APACHE/NGINX STATIC PATH OR OBJECT STORAGE IN A LARGER DEPLOYMENT
+    re_path(r'user_media/(?P<path>.*)$', serve, {'document_root' : settings.MEDIA_ROOT}),
+
     # Email opt-out/opt-in URLs
     path('optout/', include([
         path('', helios_views.optout_form, name='optout_form'),

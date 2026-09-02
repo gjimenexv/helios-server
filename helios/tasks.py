@@ -12,6 +12,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from urllib.parse import urlparse
 
+from . import election_url_names
 from . import signals
 from . import utils
 from .models import CastVote, Election, Voter, VoterFile, EmailOptOut
@@ -79,7 +80,24 @@ def single_voter_email(voter_uuid, subject_template, body_template, extra_vars={
     the_vars = copy.copy(extra_vars)
     the_vars.update({'election': voter.election})
     the_vars.update({'voter': voter})
-    
+
+    # A password voter is never sent a password. They are sent a single-use
+    # link on which they choose their own, so that no copy of the credential
+    # survives in anyone's sent folder or in the database.
+    if voter.voter_type == 'password' and voter.voter_login_id and voter.election.uuid:
+        issue_login_token = the_vars.pop('issue_login_token', False)
+
+        if issue_login_token or not voter.has_password:
+            token = voter.generate_login_token()
+            voter.save()
+            setup_path = reverse(election_url_names.ELECTION_VOTER_SETUP_CREDENTIALS,
+                                 args=[voter.election.uuid, token])
+            the_vars['voter_setup_url'] = f"{settings.SECURE_URL_HOST}{setup_path}"
+
+        resend_path = reverse(election_url_names.ELECTION_PASSWORD_VOTER_RESEND,
+                              args=[voter.election.uuid])
+        the_vars['password_resend_url'] = f"{settings.SECURE_URL_HOST}{resend_path}"
+
     # Add unsubscribe link to email context
     if voter_email:
         unsubscribe_code = utils.generate_email_confirmation_code(voter_email, 'optout')

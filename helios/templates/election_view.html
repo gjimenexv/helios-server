@@ -3,12 +3,16 @@
 {% load timezone_tags %}
 {% block title %}{{election.name}}{% endblock %}
 {% block content %}
+{% if election.logo %}
+<img src="{{election.logo.url}}" alt="{{election.name}}" style="max-height: 60px; max-width: 240px; float: left; margin-right: 20px;" />
+{% endif %}
 <div style="float: left; margin-right: 50px;">
   <h3 class="title">{{ election.name }}
 {% if admin_p %}
 {% if not election.frozen_at %}
 <small><a class="small button" href="{% url "election@edit" election.uuid %}">{% trans "edit" %}</a></small>
 {% endif %}
+<small><a class="small button" href="{% url "election@branding" election.uuid %}">{% trans "branding" %}</a></small>
 {% endif %}</h3>
 <p style="padding-top:0px; margin-top:0px">
 <em>{% if election.private_p %}{% trans "private" %}{%else%}{% trans "public" %}{% endif %}</em> {{ election.election_type }}{% if settings.SHOW_USER_INFO %} {% trans "created by" %} <u><b>{{election.admin.display_html_small|safe}}</b></u>{% endif %}

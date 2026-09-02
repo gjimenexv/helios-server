@@ -10,6 +10,7 @@ from django.shortcuts import render
 from django.template import loader
 
 import helios_auth
+from helios.branding import get_site_branding
 from helios_auth.security import get_user
 
 ##
@@ -29,6 +30,8 @@ def prepare_vars(request, values):
     vars_with_user['user'] = get_user(request)
     vars_with_user['csrf_token'] = request.session['csrf_token']
     vars_with_user['SECURE_URL_HOST'] = settings.SECURE_URL_HOST
+
+  vars_with_user['branding'] = get_site_branding()
 
   vars_with_user['STATIC'] = '/static/auth'
   vars_with_user['MEDIA_URL'] = '/static/auth/'

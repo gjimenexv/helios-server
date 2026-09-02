@@ -18,6 +18,7 @@ urlpatterns = [
     
     # edit election params
     path('/edit', views.one_election_edit, name=names.ELECTION_EDIT),
+    path('/branding', views.one_election_branding, name=names.ELECTION_BRANDING),
     path('/schedule', views.one_election_schedule, name=names.ELECTION_SCHEDULE),
     path('/extend', views.one_election_extend, name=names.ELECTION_EXTEND),
     path('/archive', views.one_election_archive, name=names.ELECTION_ARCHIVE),
@@ -83,6 +84,7 @@ urlpatterns = [
     path('/cast_confirm', views.one_election_cast_confirm, name=names.ELECTION_CAST_CONFIRM),
     path('/password_voter_login', views.password_voter_login, name=names.ELECTION_PASSWORD_VOTER_LOGIN),
     path('/password_voter_resend', views.password_voter_resend, name=names.ELECTION_PASSWORD_VOTER_RESEND),
+    path('/setup-credentials/<str:token>', views.voter_setup_credentials, name=names.ELECTION_VOTER_SETUP_CREDENTIALS),
     path('/cast_done', views.one_election_cast_done, name=names.ELECTION_CAST_DONE),
     
     # post audited ballot

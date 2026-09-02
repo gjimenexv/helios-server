@@ -2,12 +2,16 @@
 <form onsubmit="return false;" class="prettyform" id="answer_form">
 <input type="hidden" name="question_num" value="{$T.question_num}" />
 
-<p>
-<br /> 
-<b style="white-space: pre-line;">{$T.question.question}</b>
-<br />
-<span style="font-size: 0.6em;">#{$T.question_num + 1} {$T.i18n.question_number_of} {$T.last_question_num + 1} &mdash;
- {$T.i18n.question_vote_for}
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+
+    <div class="d-flex justify-content-between align-items-start mb-2">
+      <h5 class="card-title mb-0" style="white-space: pre-line;">{$T.question.question}</h5>
+      <span class="badge text-bg-secondary ms-3 text-nowrap">#{$T.question_num + 1} {$T.i18n.question_number_of} {$T.last_question_num + 1}</span>
+    </div>
+
+    <p class="text-body-secondary small mb-3">
+     {$T.i18n.question_vote_for}
 {#if $T.question.min && $T.question.min > 0}
 {#if $T.question.max}
  {$T.question.min} {$T.i18n.question_to} {$T.question.max}
@@ -21,46 +25,49 @@
  {$T.i18n.question_approve_any}
 {#/if}
 {#/if}
-</span>
-</p>
+    </p>
 
-{#foreach $T.question.answers as answer}
-<div id="answer_label_{$T.question_num}_{$T.answer_ordering[$T.answer$index]}">
-  <input type="checkbox" class="ballot_answer" id="answer_{$T.question_num}_{$T.answer_ordering[$T.answer$index]}" name="answer_{$T.question_num}_{$T.answer_ordering[$T.answer$index]}" value="yes" onclick="BOOTH.click_checkbox({$T.question_num}, {$T.answer_ordering[$T.answer$index]}, this.checked);" />
+    <div class="list-group mb-3">
+    {#foreach $T.question.answers as answer}
+    <div id="answer_label_{$T.question_num}_{$T.answer_ordering[$T.answer$index]}" class="list-group-item">
+      <div class="form-check">
+        <input type="checkbox" class="form-check-input ballot_answer" id="answer_{$T.question_num}_{$T.answer_ordering[$T.answer$index]}" name="answer_{$T.question_num}_{$T.answer_ordering[$T.answer$index]}" value="yes" onclick="BOOTH.click_checkbox({$T.question_num}, {$T.answer_ordering[$T.answer$index]}, this.checked);" />
 
-  <label class="answer" for="answer_{$T.question_num}_{$T.answer_ordering[$T.answer$index]}">
-    {$T.question.answers[$T.answer_ordering[$T.answer$index]]}
+        <label class="form-check-label answer stretched-link" for="answer_{$T.question_num}_{$T.answer_ordering[$T.answer$index]}">
+          {$T.question.answers[$T.answer_ordering[$T.answer$index]]}
 
-    {#if $T.question.answer_urls && $T.question.answer_urls[$T.answer_ordering[$T.answer$index]] && $T.question.answer_urls[$T.answer_ordering[$T.answer$index]] != ""}
-      &nbsp;&nbsp;
-      <span style="font-size: 12pt;">
-        [<a target="_blank" href="{$T.question.answer_urls[$T.answer_ordering[$T.answer$index]]}" rel="noopener noreferrer">{$T.i18n.question_more_info}</a>]
-      </span>
-    {#/if}
-  </label>
+          {#if $T.question.answer_urls && $T.question.answer_urls[$T.answer_ordering[$T.answer$index]] && $T.question.answer_urls[$T.answer_ordering[$T.answer$index]] != ""}
+            &nbsp;&nbsp;
+            <span style="font-size: 0.85em; position: relative; z-index: 2;">
+              [<a target="_blank" href="{$T.question.answer_urls[$T.answer_ordering[$T.answer$index]]}" rel="noopener noreferrer">{$T.i18n.question_more_info}</a>]
+            </span>
+          {#/if}
+        </label>
+      </div>
+    </div>
+    {#/for}
+    </div>
+
+    <div id="warning_box" class="text-success small mb-3" style="min-height: 1.5em;">
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+      {#if $T.question_num != 0}
+      <button class="btn btn-outline-secondary" onclick="BOOTH.previous({$T.question_num});">{$T.i18n.question_previous}</button>
+      {#/if}
+      </div>
+      <div>
+      {#if $T.show_reviewall}
+      <button class="btn btn-primary" onclick="BOOTH.validate_and_confirm({$T.question_num});">{$T.i18n.question_proceed}</button>
+      {#/if}
+      {#if $T.question_num < $T.last_question_num}
+      <button class="btn btn-primary" onclick="BOOTH.next({$T.question_num});">{$T.i18n.question_next}</button>
+      {#/if}
+      </div>
+    </div>
+
+  </div>
 </div>
-{#/for}
-
-<div id="warning_box" style="color: green; text-align:center; font-size: 0.8em; padding-top:10px; padding-bottom: 10px; height:50px;">
-</div>
-
-
-{#if $T.show_reviewall}
-<div style="float: right;">
-<button onclick="BOOTH.validate_and_confirm({$T.question_num});">{$T.i18n.question_proceed}</button>
-</div>
-{#/if}
-
-{#if $T.question_num != 0}
-<button onclick="BOOTH.previous({$T.question_num});">{$T.i18n.question_previous}</button>
-&nbsp;
-{#/if}
-
-{#if $T.question_num < $T.last_question_num}
-<button onclick="BOOTH.next({$T.question_num});">{$T.i18n.question_next}</button>
-&nbsp;
-{#/if}
-
-<br clear="both" />
 
 </form>

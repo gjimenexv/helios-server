@@ -257,6 +257,34 @@ def one_election_edit(request, election):
 
   return render_template(request, "election_edit", {'election_form' : election_form, 'election' : election, 'error': error})
 
+@election_admin()
+def one_election_branding(request, election):
+  if request.method == "GET":
+    election_form = forms.ElectionBrandingForm(initial={
+      'primary_color': election.primary_color,
+      'accent_color': election.accent_color,
+    })
+  else:
+    check_csrf(request)
+    election_form = forms.ElectionBrandingForm(request.POST, request.FILES)
+
+    if election_form.is_valid():
+      clean_data = election_form.cleaned_data
+
+      if clean_data['logo_clear']:
+        election.logo.delete(save=False)
+        election.logo = None
+      elif clean_data['logo']:
+        election.logo = clean_data['logo']
+
+      election.primary_color = clean_data['primary_color']
+      election.accent_color = clean_data['accent_color']
+      election.save()
+
+      return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(url_names.election.ELECTION_VIEW, args=[election.uuid]))
+
+  return render_template(request, "election_branding", {'election_form' : election_form, 'election' : election})
+
 @election_admin(frozen=False)
 def one_election_schedule(request, election):
   return HttpResponse("foo")
@@ -708,17 +736,30 @@ def password_voter_login(request, election):
   password_login_form = forms.VoterPasswordForm(request.POST)
 
   if password_login_form.is_valid():
-    try:
-      voter = election.voter_set.get(voter_login_id = password_login_form.cleaned_data['voter_id'].strip(),
-                                     voter_password = password_login_form.cleaned_data['password'].strip())
+    submitted_password = password_login_form.cleaned_data['password'].strip()
 
+    try:
+      voter = election.voter_set.get(voter_login_id = password_login_form.cleaned_data['voter_id'].strip())
+    except Voter.DoesNotExist:
+      voter = None
+
+    if voter:
+      # the stored value is a one-way hash, so this is the only way to check it
+      login_ok = voter.check_password(submitted_password)
+    else:
+      # run the hasher anyway, so that an unknown voter ID takes as long as a
+      # wrong password: otherwise the timing tells an attacker which IDs exist
+      Voter().set_password(submitted_password)
+      login_ok = False
+
+    if login_ok:
       request.session['CURRENT_VOTER_ID'] = voter.id
 
       # if we're asked to cast, let's do it
       if request.POST.get('cast_ballot') == "1":
         return one_election_cast_confirm(request, election.uuid)
-      
-    except Voter.DoesNotExist:
+
+    else:
       redirect_url = login_url + "?" + urlencode({
           'bad_voter_login' : '1',
           'return_url' : return_url
@@ -782,18 +823,75 @@ def password_voter_resend(request, election):
   # Always show success message to prevent enumeration attacks
   # but only actually send if voter exists and is a password voter
   if voter and voter.voter_type == 'password' and voter.voter_email:
-    # Queue the email
+    # Queue the email. issue_login_token forces a fresh single-use link, which
+    # invalidates any previous one; the voter sets a new password from it.
     election_vote_url = get_election_govote_url(election)
     tasks.single_voter_email.delay(
       voter_uuid=voter.uuid,
       subject_template='email/password_resend_subject.txt',
       body_template='email/password_resend_body.txt',
-      extra_vars={'election_vote_url': election_vote_url},
+      extra_vars={'election_vote_url': election_vote_url, 'issue_login_token': True},
     )
 
   return render_template(request, 'password_voter_resend', {
     'election': election,
     'sent': True
+  })
+
+@election_view(allow_logins=True)
+def voter_setup_credentials(request, election, token):
+  """
+  Landing page for the single-use link a password voter receives by email.
+
+  This is the only place a voter password is ever set, and the voter is the
+  only party that ever sees it: the server keeps a hash and nothing else.
+  """
+  voter = Voter.get_by_election_and_login_token(election, token)
+
+  if not voter:
+    # unknown, already used, or expired. we deliberately don't distinguish
+    # between those cases to the visitor.
+    can_send, _reason = election.can_send_voter_emails()
+    return render_template(request, 'voter_setup_credentials', {
+      'election': election,
+      'invalid_token': True,
+      'can_request_new_link': VOTERS_EMAIL and can_send,
+    })
+
+  setup_form = forms.VoterCredentialsSetupForm()
+
+  if request.method == "POST":
+    check_csrf(request)
+    setup_form = forms.VoterCredentialsSetupForm(request.POST)
+
+    if setup_form.is_valid():
+      with transaction.atomic():
+        # re-read under a row lock so two concurrent submissions can't both
+        # consume the same token
+        locked_voter = Voter.objects.select_for_update().get(pk=voter.pk)
+
+        if not locked_voter.login_token_is_valid:
+          return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(
+            url_names.election.ELECTION_VOTER_SETUP_CREDENTIALS, args=[election.uuid, token]))
+
+        locked_voter.set_password(setup_form.cleaned_data['password'])
+        locked_voter.consume_login_token()
+        locked_voter.save()
+
+      # log the voter in, so they can go straight to the booth
+      request.session['CURRENT_VOTER_ID'] = voter.id
+
+      if election.frozen_at:
+        return HttpResponseRedirect(get_election_govote_url(election))
+
+      return HttpResponseRedirect(settings.SECURE_URL_HOST + reverse(
+        url_names.election.ELECTION_VIEW, args=[election.uuid]))
+
+  return render_template(request, 'voter_setup_credentials', {
+    'election': election,
+    'voter': voter,
+    'setup_form': setup_form,
+    'token': token,
   })
 
 @election_view()
@@ -1730,10 +1828,10 @@ def voters_email(request, election):
       'election_vote_url' : election_vote_url,
       'custom_subject' : default_subject,
       'custom_message': '&lt;BODY&gt;',
+      'voter_setup_url': '<PERSONAL_ONE_TIME_LINK>',
       'voter': {'vote_hash' : '<SMART_TRACKER>',
                 'name': '<VOTER_NAME>',
                 'voter_login_id': '<VOTER_LOGIN_ID>',
-                'voter_password': '<VOTER_PASSWORD>',
                 'voter_type' : election.voter_set.all()[0].voter_type,
                 'election' : election}
       })

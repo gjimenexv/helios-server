@@ -8,7 +8,18 @@
 
 {% if voter.voter_type == "password" %}
 {% blocktrans with voter_id=voter.voter_login_id %}Your voter ID: {{ voter_id }}{% endblocktrans %}
-{% blocktrans with password=voter.voter_password %}Your password: {{ password }}{% endblocktrans %}
+{% if voter_setup_url %}
+{% trans "Open this personal, single-use link to choose your own password:" %}
+{{ voter_setup_url }}
+
+{% trans "The link works only once, and only for you. The password you choose is never stored and never emailed, so nobody else can ever read it, not even the election administrator." %}
+{% else %}
+{% trans "Log in with the voter ID above and the password you chose." %}
+{% if password_resend_url %}
+{% trans "Forgot your password? Request a new single-use link here:" %}
+{{ password_resend_url }}
+{% endif %}
+{% endif %}
 {% else %}
 {% blocktrans with type=voter.voter_type %}Log in with your {{ type }} account.{% endblocktrans %}
 {% endif %}{% if voter.vote_hash %}

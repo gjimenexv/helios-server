@@ -92,14 +92,13 @@ LOCALE_PATHS = [
     os.path.join(os.path.dirname(__file__), 'locale'),
 ]
 
-# Absolute path to the directory that holds media.
-# Example: "/home/media/media.lawrence.com/"
+# Absolute path to the directory that holds user-uploaded media (election
+# logos, voter files, etc.). Set below, once ROOT_PATH is defined.
 MEDIA_ROOT = ''
 
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash if there is a path component (optional in other cases).
-# Examples: "http://media.lawrence.com", "http://example.com/media/"
-MEDIA_URL = ''
+MEDIA_URL = '/user_media/'
 
 # URL prefix for admin media -- CSS, JavaScript and images. Make sure to use a
 # trailing slash.
@@ -268,6 +267,11 @@ SITE_TITLE = get_from_env('SITE_TITLE', 'Helios Voting')
 MAIN_LOGO_URL = get_from_env('MAIN_LOGO_URL', '/static/logo.png')
 ALLOW_ELECTION_INFO_URL = (get_from_env('ALLOW_ELECTION_INFO_URL', '0') == '1')
 
+# site-wide default branding colors, used whenever an election doesn't set
+# its own primary_color/accent_color. See helios/branding.py.
+DEFAULT_PRIMARY_COLOR = get_from_env('DEFAULT_PRIMARY_COLOR', '#1a73e8')
+DEFAULT_ACCENT_COLOR = get_from_env('DEFAULT_ACCENT_COLOR', '#d93025')
+
 # FOOTER links
 FOOTER_LINKS = json.loads(get_from_env('FOOTER_LINKS', '[]'))
 FOOTER_LOGO_URL = get_from_env('FOOTER_LOGO_URL', None)
@@ -284,6 +288,12 @@ HELIOS_VOTERS_EMAIL = True
 
 # Number of weeks after tallying when voter emails should be disabled
 HELIOS_VOTER_EMAIL_CUTOFF_WEEKS = int(get_from_env('HELIOS_VOTER_EMAIL_CUTOFF_WEEKS', '3'))
+
+# Voter credentials: a voter never receives a password by email. They receive a
+# single-use link, valid for this many hours, on which they set their own
+# password. Only hashes of both the token and the password are ever stored.
+HELIOS_VOTER_TOKEN_EXPIRY_HOURS = int(get_from_env('HELIOS_VOTER_TOKEN_EXPIRY_HOURS', '336'))
+HELIOS_VOTER_PASSWORD_MIN_LENGTH = int(get_from_env('HELIOS_VOTER_PASSWORD_MIN_LENGTH', '8'))
 
 # are elections private by default?
 HELIOS_PRIVATE_DEFAULT = False

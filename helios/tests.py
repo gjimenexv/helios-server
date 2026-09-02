@@ -12,7 +12,7 @@ import django_webtest
 from django.conf import settings
 from django.core import mail
 from django.core.files import File
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.utils.html import escape as html_escape
 
 import helios.datatypes as datatypes
@@ -474,21 +474,79 @@ class VoterModelTests(TestCase):
     def setUp(self):
         self.election = models.Election.objects.get(short_name='test')
 
+    def make_voter(self, voter_login_id='voter_test_1'):
+        return models.Voter(uuid = str(uuid.uuid4()), election = self.election, voter_login_id = voter_login_id, voter_name = 'Voter Test 1', voter_email='foobar@acme.com')
+
     def test_create_password_voter(self):
-        v = models.Voter(uuid = str(uuid.uuid4()), election = self.election, voter_login_id = 'voter_test_1', voter_name = 'Voter Test 1', voter_email='foobar@acme.com')
-
-        v.generate_password()
-
+        v = self.make_voter()
         v.save()
-        
-        # password has been generated!
-        self.assertFalse(v.voter_password is None)
 
-        # can't generate passwords twice
-        self.assertRaises(Exception, lambda: v.generate_password())
-        
+        # a voter starts with no credential at all: they set one themselves
+        self.assertFalse(v.has_password)
+
         # check that you can get at the voter user structure
         self.assertEqual(v.get_user().user_id, v.voter_email)
+
+    def test_password_is_only_ever_stored_hashed(self):
+        v = self.make_voter()
+        v.set_password('correct horse battery staple')
+        v.save()
+
+        v = models.Voter.objects.get(pk=v.pk)
+
+        # the cleartext password appears nowhere in the stored row
+        self.assertNotIn('correct horse battery staple', v.voter_password_hash)
+        self.assertNotIn('voter_password', [f.name for f in models.Voter._meta.get_fields()])
+
+        self.assertTrue(v.check_password('correct horse battery staple'))
+        self.assertFalse(v.check_password('correct horse battery stapl'))
+        self.assertFalse(v.check_password(''))
+
+    def test_login_token_is_single_use(self):
+        v = self.make_voter()
+        token = v.generate_login_token()
+        v.save()
+
+        # only the hash is stored, never the token itself
+        self.assertNotEqual(token, v.login_token_hash)
+        self.assertEqual(v.login_token_hash, models.Voter.hash_login_token(token))
+
+        self.assertEqual(models.Voter.get_by_election_and_login_token(self.election, token).pk, v.pk)
+
+        v.consume_login_token()
+        v.save()
+
+        # once consumed, the link is dead and the hash is gone from the row
+        self.assertIsNone(v.login_token_hash)
+        self.assertIsNone(models.Voter.get_by_election_and_login_token(self.election, token))
+
+    def test_login_token_expires(self):
+        v = self.make_voter()
+        token = v.generate_login_token()
+        v.login_token_issued_at = datetime.datetime.utcnow() - datetime.timedelta(
+            hours=settings.HELIOS_VOTER_TOKEN_EXPIRY_HOURS + 1)
+        v.save()
+
+        self.assertFalse(v.login_token_is_valid)
+        self.assertIsNone(models.Voter.get_by_election_and_login_token(self.election, token))
+
+    def test_issuing_a_token_invalidates_the_previous_one(self):
+        v = self.make_voter()
+        first_token = v.generate_login_token()
+        v.save()
+
+        second_token = v.generate_login_token()
+        v.save()
+
+        self.assertIsNone(models.Voter.get_by_election_and_login_token(self.election, first_token))
+        self.assertEqual(models.Voter.get_by_election_and_login_token(self.election, second_token).pk, v.pk)
+
+    def test_unknown_token_matches_nobody(self):
+        self.make_voter().save()
+
+        self.assertIsNone(models.Voter.get_by_election_and_login_token(self.election, 'not-a-token'))
+        self.assertIsNone(models.Voter.get_by_election_and_login_token(self.election, ''))
+        self.assertIsNone(models.Voter.get_by_election_and_login_token(self.election, None))
 
 
 class CastVoteModelTests(TestCase):
@@ -638,6 +696,9 @@ class WebTest(django_webtest.WebTest):
 class ElectionBlackboxTests(WebTest):
     fixtures = ['users.json', 'election.json']
     allow_database_queries = True
+
+    # the password a test voter chooses for themselves through their link
+    VOTER_PASSWORD = 'v0ter-chosen-secret'
 
     def setUp(self):
         self.election = models.Election.objects.all()[0]
@@ -865,9 +926,12 @@ class ElectionBlackboxTests(WebTest):
         email_message = mail.outbox[num_messages_before]
         assert "your password" in email_message.subject, "bad subject in email"
 
-        # get the username and password
-        username = re.search('voter ID: (.*)', email_message.body).group(1)
-        password = re.search('password: (.*)', email_message.body).group(1)
+        # the email carries a voter ID and a single-use link, never a password
+        username = re.search('voter ID: (.*)', email_message.body).group(1).strip()
+        self.assertNotIn('Your password:', email_message.body)
+
+        # follow the link and choose a password, the way the voter would
+        password = self._set_voter_password_from_email(email_message)
 
         # now log out as administrator
         self.clear_login()
@@ -875,6 +939,28 @@ class ElectionBlackboxTests(WebTest):
 
         # return the voter username and password to vote
         return election_id, username, password
+
+    def _set_voter_password_from_email(self, email_message, password=None):
+        """
+        Follow the single-use link in a voter email and choose a password, the
+        way the voter would. Runs on a throwaway client so the voter is not
+        left logged in to the sessions the rest of the test uses.
+        """
+        password = password or self.VOTER_PASSWORD
+        setup_url = re.search(r'(/helios/elections/[^/\s]+/setup-credentials/\S+)', email_message.body).group(1)
+
+        client = Client()
+        response = client.get(setup_url)
+        self.assertEqual(response.status_code, 200, "the single-use link should be live")
+
+        response = client.post(setup_url, {
+            'csrf_token': client.session['csrf_token'],
+            'password': password,
+            'password_confirm': password,
+        })
+        self.assertEqual(response.status_code, 302, "choosing a password should redirect to the booth")
+
+        return password
 
     def _cast_ballot(self, election_id, username, password, need_login=True, check_user_logged_in=False):
         """
@@ -2584,7 +2670,7 @@ class PasswordResendTests(WebTest):
             voter_name='Test Voter',
             voter_login_id='testvoter'
         )
-        self.voter.generate_password()
+        self.voter.set_password('the-voter-old-password')
         self.voter.save()
 
     def get_resend_url(self):
@@ -2595,7 +2681,7 @@ class PasswordResendTests(WebTest):
         response = self.client.get(self.get_resend_url())
         self.assertStatusCode(response, 200)
         self.assertContains(response, 'Voter ID')
-        self.assertContains(response, 'Resend')
+        self.assertContains(response, 'new single-use link')
 
     def test_post_valid_voter_shows_success_and_sends_email(self):
         """Test that POST with valid voter ID shows success message and sends email"""
@@ -2610,7 +2696,7 @@ class PasswordResendTests(WebTest):
             'voter_id': 'testvoter'
         })
         self.assertStatusCode(response, 200)
-        self.assertContains(response, 'email with your voting credentials has been sent')
+        self.assertContains(response, 'new single-use voting link has been sent')
 
         # Check that an email was queued
         self.assertEqual(len(mail.outbox), num_messages_before + 1)
@@ -2619,7 +2705,16 @@ class PasswordResendTests(WebTest):
         self.assertTrue(any('voter@example.com' in recipient for recipient in email_message.to))
         self.assertIn('credentials', email_message.subject.lower())
         self.assertIn(self.voter.voter_login_id, email_message.body)
-        self.assertIn(self.voter.voter_password, email_message.body)
+
+        # it carries a live single-use link, and no password whatsoever
+        self.assertNotIn('the-voter-old-password', email_message.body)
+        self.assertNotIn('Your password:', email_message.body)
+        token = re.search(r'/setup-credentials/(\S+)', email_message.body).group(1)
+        self.assertIsNotNone(models.Voter.get_by_election_and_login_token(self.election, token))
+
+        # and the voter's existing password still works until they use the link
+        self.voter.refresh_from_db()
+        self.assertTrue(self.voter.check_password('the-voter-old-password'))
 
     def test_post_invalid_voter_still_shows_success_but_no_email(self):
         """Test that POST with invalid voter ID still shows success but sends no email"""
@@ -2634,7 +2729,7 @@ class PasswordResendTests(WebTest):
         })
         self.assertStatusCode(response, 200)
         # Should still show success message to prevent enumeration attacks
-        self.assertContains(response, 'email with your voting credentials has been sent')
+        self.assertContains(response, 'new single-use voting link has been sent')
 
         # But no email should have been sent
         self.assertEqual(len(mail.outbox), num_messages_before)
@@ -2679,7 +2774,7 @@ class PasswordResendTests(WebTest):
             voter_name='No Email Voter',
             voter_login_id='noemailvoter'
         )
-        voter_no_email.generate_password()
+        voter_no_email.set_password('another-password')
         voter_no_email.save()
 
         self.client.get(self.get_resend_url())
@@ -2693,10 +2788,191 @@ class PasswordResendTests(WebTest):
         })
         # Should still show success (doesn't reveal that email is missing)
         self.assertStatusCode(response, 200)
-        self.assertContains(response, 'email with your voting credentials has been sent')
+        self.assertContains(response, 'new single-use voting link has been sent')
 
         # But no email should have been sent since voter has no email
         self.assertEqual(len(mail.outbox), num_messages_before)
+
+
+class VoterCredentialsSetupTests(WebTest):
+    """The single-use link on which a voter chooses their own password"""
+    fixtures = ['users.json']
+    allow_database_queries = True
+
+    PASSWORD = 'a-password-only-i-know'
+
+    def setUp(self):
+        self.user = auth_models.User.objects.get(user_id='ben@adida.net', user_type='google')
+        self.election, _ = models.Election.get_or_create(
+            short_name='test-credentials-setup',
+            name='Test Credentials Setup Election',
+            description='Test Election for Credentials Setup',
+            admin=self.user
+        )
+        if not self.election.uuid:
+            self.election.uuid = str(uuid.uuid4())
+            self.election.save()
+
+        self.election.questions = [{"answer_urls": [None, None], "answers": ["Yes", "No"], "choice_type": "approval", "max": 1, "min": 0, "question": "Test?", "result_type": "absolute", "short_name": "Test?", "tally_type": "homomorphic"}]
+        self.election.generate_trustee(views.ELGAMAL_PARAMS)
+        self.election.openreg = True
+        self.election.freeze()
+
+        self.voter = models.Voter.objects.create(
+            uuid=str(uuid.uuid4()),
+            election=self.election,
+            voter_email='voter@example.com',
+            voter_name='Test Voter',
+            voter_login_id='testvoter'
+        )
+        self.token = self.voter.generate_login_token()
+        self.voter.save()
+
+    def setup_url(self, token=None):
+        return f'/helios/elections/{self.election.uuid}/setup-credentials/{token or self.token}'
+
+    def post_password(self, password=None, confirm=None, token=None):
+        url = self.setup_url(token)
+        self.client.get(url)
+        return self.client.post(url, {
+            'csrf_token': self.client.session.get('csrf_token', ''),
+            'password': password if password is not None else self.PASSWORD,
+            'password_confirm': confirm if confirm is not None else (password if password is not None else self.PASSWORD),
+        })
+
+    def test_get_shows_form_with_voter_id(self):
+        response = self.client.get(self.setup_url())
+        self.assertStatusCode(response, 200)
+        self.assertContains(response, 'testvoter')
+        self.assertContains(response, 'Choose a password')
+
+    def test_setting_a_password_logs_the_voter_in_and_consumes_the_link(self):
+        response = self.post_password()
+        self.assertEqual(response.status_code, 302)
+
+        # the voter is logged in and can now cast a ballot
+        self.assertEqual(self.client.session['CURRENT_VOTER_ID'], self.voter.id)
+
+        self.voter.refresh_from_db()
+        self.assertTrue(self.voter.check_password(self.PASSWORD))
+        self.assertIsNotNone(self.voter.login_token_used_at)
+
+        # the link is dead the moment it is used
+        response = self.client.get(self.setup_url())
+        self.assertContains(response, 'no longer valid')
+
+    def test_chosen_password_is_not_recoverable_from_the_database(self):
+        self.post_password()
+
+        self.voter.refresh_from_db()
+        row = models.Voter.objects.filter(pk=self.voter.pk).values()[0]
+        self.assertNotIn(self.PASSWORD, str(row))
+
+    def test_password_then_works_for_login(self):
+        self.post_password()
+
+        login_client = Client()
+        login_url = f'/helios/elections/{self.election.uuid}/password_voter_login'
+        login_client.get(login_url)
+        response = login_client.post(login_url, {
+            'csrf_token': login_client.session.get('csrf_token', ''),
+            'voter_id': 'testvoter',
+            'password': self.PASSWORD,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(login_client.session['CURRENT_VOTER_ID'], self.voter.id)
+
+    def test_wrong_password_does_not_log_in(self):
+        self.post_password()
+
+        login_client = Client()
+        login_url = f'/helios/elections/{self.election.uuid}/password_voter_login'
+        login_client.get(login_url)
+        response = login_client.post(login_url, {
+            'csrf_token': login_client.session.get('csrf_token', ''),
+            'voter_id': 'testvoter',
+            'password': 'not-the-password',
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('bad_voter_login', response['Location'])
+        self.assertNotIn('CURRENT_VOTER_ID', login_client.session)
+
+    def test_mismatched_passwords_are_rejected_and_link_survives(self):
+        response = self.post_password(password=self.PASSWORD, confirm='something-else')
+        self.assertStatusCode(response, 200)
+        self.assertContains(response, 'do not match')
+
+        self.voter.refresh_from_db()
+        self.assertFalse(self.voter.has_password)
+        self.assertTrue(self.voter.login_token_is_valid)
+
+    def test_short_password_is_rejected(self):
+        response = self.post_password(password='short')
+        self.assertStatusCode(response, 200)
+        self.assertContains(response, 'at least')
+
+        self.voter.refresh_from_db()
+        self.assertFalse(self.voter.has_password)
+
+    def test_unknown_token_is_rejected(self):
+        response = self.client.get(self.setup_url(token='not-a-real-token'))
+        self.assertStatusCode(response, 200)
+        self.assertContains(response, 'no longer valid')
+
+    def test_expired_token_is_rejected(self):
+        self.voter.login_token_issued_at = datetime.datetime.utcnow() - datetime.timedelta(
+            hours=settings.HELIOS_VOTER_TOKEN_EXPIRY_HOURS + 1)
+        self.voter.save()
+
+        response = self.client.get(self.setup_url())
+        self.assertStatusCode(response, 200)
+        self.assertContains(response, 'no longer valid')
+
+        response = self.post_password()
+        self.assertStatusCode(response, 200)
+        self.assertContains(response, 'no longer valid')
+        self.voter.refresh_from_db()
+        self.assertFalse(self.voter.has_password)
+
+    def test_voter_email_carries_a_link_and_never_a_password(self):
+        num_messages_before = len(mail.outbox)
+
+        tasks.single_voter_email(
+            voter_uuid=self.voter.uuid,
+            subject_template='email/vote_subject.txt',
+            body_template='email/vote_body.txt',
+            extra_vars={'custom_subject': 'Vote', 'custom_message': 'Time to vote',
+                        'election_vote_url': 'http://example.com/vote',
+                        'election_url': 'http://example.com/election'},
+        )
+
+        self.assertEqual(len(mail.outbox), num_messages_before + 1)
+        body = mail.outbox[-1].body
+
+        self.assertIn('Your voter ID: testvoter', body)
+        self.assertNotIn('Your password:', body)
+        self.assertIn('/setup-credentials/', body)
+
+        # the emailed link is the one now on record for this voter
+        token = re.search(r'/setup-credentials/(\S+)', body).group(1)
+        self.assertEqual(models.Voter.get_by_election_and_login_token(self.election, token).pk, self.voter.pk)
+
+    def test_voter_who_already_chose_a_password_gets_no_new_link(self):
+        self.post_password()
+
+        tasks.single_voter_email(
+            voter_uuid=self.voter.uuid,
+            subject_template='email/vote_subject.txt',
+            body_template='email/vote_body.txt',
+            extra_vars={'custom_subject': 'Vote', 'custom_message': 'Time to vote',
+                        'election_vote_url': 'http://example.com/vote',
+                        'election_url': 'http://example.com/election'},
+        )
+
+        body = mail.outbox[-1].body
+        self.assertNotIn('/setup-credentials/', body)
+        self.assertNotIn(self.PASSWORD, body)
+        self.assertIn('password_voter_resend', body)
 
 
 class PendingVotesTests(TestCase):

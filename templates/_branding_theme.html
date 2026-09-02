@@ -1,0 +1,38 @@
+<style>
+  :root {
+    --brand-primary: {{branding.primary_color}};
+    --brand-accent: {{branding.accent_color}};
+
+    /* Bootstrap 5.3's own theme tokens, re-pointed at the same colors so
+       navbar/button/link/form components restyle automatically without
+       recompiling Bootstrap's Sass. */
+    --bs-primary: {{branding.primary_color}};
+    --bs-primary-rgb: {{branding.primary_color_rgb}};
+    --bs-link-color: {{branding.primary_color}};
+    --bs-link-color-rgb: {{branding.primary_color_rgb}};
+    --bs-link-hover-color: {{branding.accent_color}};
+    --bs-link-hover-color-rgb: {{branding.accent_color_rgb}};
+  }
+
+  /* Foundation (still used for the .row/.columns content grid) doesn't
+     read CSS variables, so its button/top-bar colors are overridden
+     directly here. */
+  a, a:visited { color: var(--brand-primary); }
+  a:hover, a:focus { color: var(--brand-accent); }
+  .button, input[type="submit"].button, input.button {
+    background-color: var(--brand-primary);
+    border-color: var(--brand-primary);
+  }
+  .button:hover, .button:focus,
+  input[type="submit"].button:hover, input.button:hover {
+    background-color: var(--brand-accent);
+    border-color: var(--brand-accent);
+  }
+  .top-bar, .top-bar-section li:not(.has-form) a:not(.button) {
+    background-color: var(--brand-primary);
+  }
+
+  .navbar-toggler-icon {
+    filter: invert(1) grayscale(100%) brightness(200%);
+  }
+</style>
