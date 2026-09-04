@@ -93,7 +93,7 @@
   <ul class="civic-records">
   {% for vf in voter_files %}
     <li>
-      <span class="civic-records__meta">{% if vf.voter_file %}{{vf.voter_file.size}}{% else %}{{vf.voter_file_content|length}}{% endif %} {% blocktrans with uploaded_at=vf.uploaded_at|utc_time %}bytes, at {{ uploaded_at }}:{% endblocktrans %}</span>
+      <span class="civic-records__meta">{% if vf.voter_file %}{{vf.voter_file.size}}{% else %}{{vf.voter_file_content|length}}{% endif %} {% blocktrans with uploaded_at=vf.uploaded_at|election_time %}bytes, at {{ uploaded_at }}:{% endblocktrans %}</span>
       {% if vf.processing_finished_at %}
       <em>{% blocktrans with num_voters=vf.num_voters %}done processing: {{ num_voters }} voters loaded{% endblocktrans %}</em>
       {% else %}

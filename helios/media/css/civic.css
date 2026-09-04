@@ -1579,24 +1579,13 @@ body.civic #footer .button:hover {
   color: #fff;
 }
 
-/* The timezone widget (helios/media/timezone-display.css) hardcodes a system
-   font and a blue local-time link, which reads as off-palette next to an
-   election's own brand color. Retint it to the tokens on civic pages only. */
-body.civic .tz-display {
+/* The timezone styles (helios/media/timezone-display.css) hardcode a system
+   font and colors, which read as off-palette next to an election's own brand
+   color. Retint them to the tokens on civic pages only. */
+body.civic .tz-timestamp {
   font-family: var(--mono);
   font-size: inherit;
-}
-
-body.civic .tz-utc {
   color: var(--ink-soft);
-}
-
-body.civic .tz-local {
-  color: var(--accent);
-}
-
-body.civic .tz-separator {
-  color: var(--ink-faint);
 }
 
 /* ==========================================================================

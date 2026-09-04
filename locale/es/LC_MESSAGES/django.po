@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-02 03:03-0700\n"
+"POT-Creation-Date: 2026-09-04 19:15+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -79,16 +79,16 @@ msgstr ""
 "elección, p. ej. biografías y declaraciones de los candidatos"
 
 #: helios/forms.py:32
-msgid "UTC date and time when voting begins"
-msgstr "fecha y hora UTC en que comienza la votación"
+msgid "date and time when voting begins, on the election time zone"
+msgstr "fecha y hora en que comienza la votación, en la zona horaria de la elección"
 
 #: helios/forms.py:34
-msgid "UTC date and time when voting ends"
-msgstr "fecha y hora UTC en que finaliza la votación"
+msgid "date and time when voting ends, on the election time zone"
+msgstr "fecha y hora en que finaliza la votación, en la zona horaria de la elección"
 
 #: helios/forms.py:38
-msgid "UTC date and time voting extended to"
-msgstr "fecha y hora UTC hasta la que se ha extendido la votación"
+msgid "date and time voting is extended to, on the election time zone"
+msgstr "fecha y hora hasta la que se extiende la votación, en la zona horaria de la elección"
 
 #: helios/forms.py:42
 msgid "Logo"
@@ -346,6 +346,7 @@ msgid "authenticate &amp; cast ballot"
 msgstr "autenticarse y emitir papeleta"
 
 #: helios/templates/_castconfirm_password.html:21
+#: helios/templates/_castconfirm_password.html:33
 msgid ""
 "Your voter ID is in the email you received; the password is the one you "
 "chose yourself."
@@ -354,10 +355,12 @@ msgstr ""
 "usted mismo eligió."
 
 #: helios/templates/_castconfirm_password.html:22
+#: helios/templates/_castconfirm_password.html:34
 msgid "Forgot your password? Click here to get a new link."
 msgstr "¿Olvidó su contraseña? Haga clic aquí para obtener un enlace nuevo."
 
 #: helios/templates/_castconfirm_password.html:23
+#: helios/templates/_castconfirm_password.html:35
 #, python-format
 msgid ""
 "If you still cannot find your login information, contact your election "
@@ -371,7 +374,7 @@ msgid "Cast as many ballots as you wish: only the last one counts."
 msgstr "Emita tantas papeletas como desee: solo cuenta la última."
 
 #: helios/templates/_castconfirm_password.html:30
-#: server_ui/templates/base.html:116
+#: server_ui/templates/base.html:115
 msgid "log in"
 msgstr "iniciar sesión"
 
@@ -2120,7 +2123,7 @@ msgstr "¡publicar resultado!"
 msgid "Statistics"
 msgstr "Estadísticas"
 
-#: helios/templates/stats.html:6 server_ui/templates/base.html:73
+#: helios/templates/stats.html:6 server_ui/templates/base.html:72
 msgid "Admin"
 msgstr "Administrador"
 
@@ -3293,6 +3296,11 @@ msgstr ""
 "La dirección de correo electrónico %(email)s se ha vuelto a incluir "
 "correctamente en los correos electrónicos de Helios."
 
+#: helios/widgets.py:261
+#, python-format
+msgid "Times are in %(timezone)s, the election time zone."
+msgstr "Las horas están en %(timezone)s, la zona horaria de la elección."
+
 #: helios_auth/auth_systems/ldapauth.py:23
 msgid "Log in with my LDAP Account"
 msgstr "Iniciar sesión con mi cuenta LDAP"
@@ -3315,7 +3323,7 @@ msgstr ""
 "Actualmente ha iniciado sesión como<br /><b>%(user_id)s</b> mediante "
 "<b>%(user_type)s</b>."
 
-#: helios_auth/templates/index.html:12 server_ui/templates/base.html:110
+#: helios_auth/templates/index.html:12 server_ui/templates/base.html:109
 msgid "logout"
 msgstr "cerrar sesión"
 
@@ -3551,44 +3559,44 @@ msgstr ""
 "de votación, y participó en la auditoría «de arriba abajo» de los sistemas "
 "de votación de California."
 
-#: server_ui/templates/base.html:57
+#: server_ui/templates/base.html:56
 msgid "Toggle navigation"
 msgstr "Alternar navegación"
 
-#: server_ui/templates/base.html:63
+#: server_ui/templates/base.html:62
 msgid "About"
 msgstr "Acerca de"
 
-#: server_ui/templates/base.html:64
+#: server_ui/templates/base.html:63
 msgid "Code"
 msgstr "Código"
 
-#: server_ui/templates/base.html:65
+#: server_ui/templates/base.html:64
 msgid "Docs"
 msgstr "Documentación"
 
-#: server_ui/templates/base.html:66 server_ui/templates/faq.html:12
+#: server_ui/templates/base.html:65 server_ui/templates/faq.html:12
 msgid "FAQ"
 msgstr "Preguntas frecuentes"
 
-#: server_ui/templates/base.html:67 server_ui/templates/privacy.html:12
+#: server_ui/templates/base.html:66 server_ui/templates/privacy.html:12
 msgid "Privacy"
 msgstr "Privacidad"
 
-#: server_ui/templates/base.html:70
+#: server_ui/templates/base.html:69
 msgid "About Helios"
 msgstr "Acerca de Helios"
 
-#: server_ui/templates/base.html:75
+#: server_ui/templates/base.html:74
 msgid "Help!"
 msgstr "¡Ayuda!"
 
-#: server_ui/templates/base.html:109
+#: server_ui/templates/base.html:108
 #, python-format
 msgid "logged in as <b>%(user_display)s</b>"
 msgstr "sesión iniciada como <b>%(user_display)s</b>"
 
-#: server_ui/templates/base.html:113
+#: server_ui/templates/base.html:112
 #, python-format
 msgid ""
 "You are signed in as voter <u>%(voter_display)s</u> in election "
@@ -3597,15 +3605,15 @@ msgstr ""
 "Ha iniciado sesión como votante <u>%(voter_display)s</u> en la elección "
 "<u>%(election_name)s</u>."
 
-#: server_ui/templates/base.html:113
+#: server_ui/templates/base.html:112
 msgid "sign out"
 msgstr "cerrar sesión"
 
-#: server_ui/templates/base.html:116
+#: server_ui/templates/base.html:115
 msgid "not logged in."
 msgstr "sesión no iniciada."
 
-#: server_ui/templates/base.html:118
+#: server_ui/templates/base.html:117
 msgid "powered by <a href=\"http://heliosvoting.org\">Helios Voting</a>."
 msgstr ""
 "desarrollado con <a href=\"http://heliosvoting.org\">Helios Voting</a>."

@@ -41,8 +41,8 @@
 
   {% if election.voting_start_at or election.voting_end_at %}
   <dl class="civic-schedule">
-    {% if election.voting_start_at %}<dd>{% blocktrans with start_time=election.voting_start_at|utc_time %}Voting start at {{ start_time }}{% endblocktrans %}</dd>{% endif %}
-    {% if election.voting_end_at %}<dd>{% blocktrans with end_time=election.voting_end_at|utc_time %}Voting end at {{ end_time }}{% endblocktrans %}</dd>{% endif %}
+    {% if election.voting_start_at %}<dd>{% blocktrans with start_time=election.voting_start_at|election_time %}Voting start at {{ start_time }}{% endblocktrans %}</dd>{% endif %}
+    {% if election.voting_end_at %}<dd>{% blocktrans with end_time=election.voting_end_at|election_time %}Voting end at {{ end_time }}{% endblocktrans %}</dd>{% endif %}
   </dl>
   {% endif %}
 
@@ -90,11 +90,11 @@
 
   <p class="civic-note">
   {% if election.voting_extended_until %}
-  {% blocktrans with election_type=election.election_type end_time=election.voting_ends_at|utc_time extended_time=election.voting_extended_until|utc_time %}This {{ election_type }} was initially scheduled to end at {{ end_time }},<br />
+  {% blocktrans with election_type=election.election_type end_time=election.voting_ends_at|election_time extended_time=election.voting_extended_until|election_time %}This {{ election_type }} was initially scheduled to end at {{ end_time }},<br />
 but has been extended until {{ extended_time }}.{% endblocktrans %}
   {% else %}
   {% if election.voting_ends_at %}
-  {% blocktrans with election_type=election.election_type end_time=election.voting_ends_at|utc_time %}This {{ election_type }} is scheduled to end at {{ end_time }}.{% endblocktrans %}
+  {% blocktrans with election_type=election.election_type end_time=election.voting_ends_at|election_time %}This {{ election_type }} is scheduled to end at {{ end_time }}.{% endblocktrans %}
   {% else %}
   {% blocktrans with election_type=election.election_type %}This {{ election_type }} ends at the administrator's discretion.{% endblocktrans %}
   {% endif %}
@@ -311,7 +311,7 @@ but has been extended until {{ extended_time }}.{% endblocktrans %}
     <a href="{% url "election@freeze" election.uuid %}">{% trans "freeze ballot and open election." %}</a>
     <br />
     {% if election.voting_starts_at %}
-    {% blocktrans with start_time=election.voting_starts_at|utc_time %}once you do this, the election will be ready for voting and will open automatically<br />
+    {% blocktrans with start_time=election.voting_starts_at|election_time %}once you do this, the election will be ready for voting and will open automatically<br />
 at {{ start_time }}, as per your settings.{% endblocktrans %}
     {% else %}
     {% trans "once you do this, the election will be immediately open for voting." %}

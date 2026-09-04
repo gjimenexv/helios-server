@@ -29,13 +29,13 @@ class ElectionForm(forms.Form):
     election_info_url = forms.CharField(required=False, initial="", label=_("Election Info Download URL"), help_text=_("the URL of a PDF document that contains extra election information, e.g. candidate bios and statements"))
 
   # times
-  voting_starts_at = DateTimeLocalField(help_text = _('UTC date and time when voting begins'),
+  voting_starts_at = DateTimeLocalField(help_text = _('date and time when voting begins, on the election time zone'),
                                    required=False)
-  voting_ends_at = DateTimeLocalField(help_text = _('UTC date and time when voting ends'),
+  voting_ends_at = DateTimeLocalField(help_text = _('date and time when voting ends, on the election time zone'),
                                    required=False)
 
 class ElectionTimeExtensionForm(forms.Form):
-  voting_extended_until = DateTimeLocalField(help_text = _('UTC date and time voting extended to'),
+  voting_extended_until = DateTimeLocalField(help_text = _('date and time voting is extended to, on the election time zone'),
                                    required=False)
 
 class ElectionBrandingForm(forms.Form):

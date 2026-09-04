@@ -1,29 +1,16 @@
-/* Helios Timezone Display Styles */
+/* Helios Timezone Display Styles
 
-.tz-display {
+   Times render server-side on the election's own clock (see
+   helios/timezone_utils.py), so there is nothing here for JavaScript to
+   rewrite: these styles only mark the rendered timestamp and the note under
+   a datetime input. */
+
+.tz-timestamp {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
-}
-
-.tz-utc {
   color: #333;
   font-weight: 500;
-}
-
-.tz-separator {
-  color: #999;
-  margin: 0 4px;
-}
-
-.tz-local {
-  color: #0066cc;
-  font-weight: 500;
-}
-
-.tz-utc:hover,
-.tz-local:hover {
-  text-decoration: underline;
 }
 
 /* Helper text for datetime inputs */

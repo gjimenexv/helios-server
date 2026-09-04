@@ -13,7 +13,7 @@ import django_webtest
 from django.conf import settings
 from django.core import mail
 from django.core.files import File
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.utils.html import escape as html_escape
 
 import helios.datatypes as datatypes
@@ -2735,8 +2735,15 @@ class VoterEmailCutoffViewTests(WebTest):
         self.assertContains(response, 'cursor: not-allowed')
 
 
+# Costa Rica is UTC-6 all year, so these expectations do not move with
+# daylight saving.
+@override_settings(ELECTION_TIME_ZONE='America/Costa_Rica')
 class DateTimeLocalWidgetTests(TestCase):
-    """Unit tests for DateTimeLocalWidget"""
+    """Unit tests for DateTimeLocalWidget
+
+    Stored values are naive UTC; the widget puts them back on the election
+    clock, which is what the administrator typed in the first place.
+    """
 
     def setUp(self):
         from helios.widgets import DateTimeLocalWidget
@@ -2773,18 +2780,28 @@ class DateTimeLocalWidgetTests(TestCase):
         self.assertNotIn('value=', html)
 
     def test_render_with_datetime_value(self):
-        """Test rendering with a datetime object"""
+        """Test rendering with a datetime object, converted to election time"""
         test_datetime = datetime.datetime(2026, 1, 15, 14, 30)
         html = self.widget.render('test_field', test_datetime)
         self.assertIn('type="datetime-local"', html)
         self.assertIn('name="test_field"', html)
-        self.assertIn('value="2026-01-15T14:30"', html)
+        self.assertIn('value="2026-01-15T08:30"', html)
+
+    def test_render_names_the_election_time_zone(self):
+        """Test that the input says which clock it is on"""
+        html = self.widget.render('test_field', datetime.datetime(2026, 1, 15, 14, 30))
+        self.assertIn('CST', html)
+
+    def test_render_leaves_a_resubmitted_string_alone(self):
+        """A redisplayed submission is already on the election clock"""
+        html = self.widget.render('test_field', '2026-01-15T08:30')
+        self.assertIn('value="2026-01-15T08:30"', html)
 
     def test_render_datetime_formatting(self):
         """Test that datetime is formatted correctly for datetime-local input"""
-        test_datetime = datetime.datetime(2026, 12, 31, 23, 59)
+        test_datetime = datetime.datetime(2027, 1, 1, 5, 59)
         html = self.widget.render('voting_starts_at', test_datetime)
-        # Should format as YYYY-MM-DDTHH:MM
+        # Should format as YYYY-MM-DDTHH:MM, on the election clock
         self.assertIn('value="2026-12-31T23:59"', html)
         # Should not have seconds
         self.assertNotIn('23:59:00', html)
@@ -2819,7 +2836,7 @@ class DateTimeLocalWidgetTests(TestCase):
 
     def test_render_includes_all_required_attributes(self):
         """Test that rendered HTML includes all required attributes"""
-        test_datetime = datetime.datetime(2026, 6, 15, 10, 0)
+        test_datetime = datetime.datetime(2026, 6, 15, 16, 0)
         html = self.widget.render('election_date', test_datetime)
 
         # Check all required attributes are present
@@ -2830,21 +2847,26 @@ class DateTimeLocalWidgetTests(TestCase):
         self.assertIn('value="2026-06-15T10:00"', html)
 
     def test_render_handles_midnight(self):
-        """Test rendering datetime at midnight"""
-        test_datetime = datetime.datetime(2026, 1, 1, 0, 0)
+        """Test rendering a datetime that is midnight on the election clock"""
+        test_datetime = datetime.datetime(2026, 1, 1, 6, 0)
         html = self.widget.render('test_field', test_datetime)
         self.assertIn('value="2026-01-01T00:00"', html)
 
     def test_render_handles_single_digit_hours_and_minutes(self):
         """Test that single-digit hours and minutes are zero-padded"""
-        test_datetime = datetime.datetime(2026, 1, 5, 9, 5)
+        test_datetime = datetime.datetime(2026, 1, 5, 15, 5)
         html = self.widget.render('test_field', test_datetime)
         # Should be zero-padded
         self.assertIn('value="2026-01-05T09:05"', html)
 
 
+@override_settings(ELECTION_TIME_ZONE='America/Costa_Rica')
 class DateTimeLocalFieldTests(TestCase):
-    """Unit tests for DateTimeLocalField"""
+    """Unit tests for DateTimeLocalField
+
+    What the administrator types is on the election clock; what comes out of
+    clean() is the naive UTC that gets stored.
+    """
 
     def setUp(self):
         from helios.fields import DateTimeLocalField
@@ -2856,19 +2878,28 @@ class DateTimeLocalFieldTests(TestCase):
         self.assertIsInstance(self.field.widget, DateTimeLocalWidget)
 
     def test_field_accepts_datetime_local_format(self):
-        """Test that field accepts datetime-local format input"""
+        """Test that field accepts datetime-local format input, as election time"""
         value = self.field.clean('2026-01-15T14:30')
-        self.assertEqual(value.year, 2026)
-        self.assertEqual(value.month, 1)
-        self.assertEqual(value.day, 15)
-        self.assertEqual(value.hour, 14)
-        self.assertEqual(value.minute, 30)
+        # 14:30 in Costa Rica (UTC-6) is 20:30 UTC, which is what we store.
+        self.assertEqual(value, datetime.datetime(2026, 1, 15, 20, 30))
+
+    def test_field_round_trips_through_the_widget(self):
+        """What the admin types comes back unchanged on the next render"""
+        stored = self.field.clean('2026-01-15T14:30')
+        html = self.field.widget.render('voting_ends_at', stored)
+        self.assertIn('value="2026-01-15T14:30"', html)
 
     def test_field_accepts_datetime_local_format_with_seconds(self):
         """Test that field accepts datetime-local format with seconds"""
         value = self.field.clean('2026-01-15T14:30:45')
         self.assertEqual(value.year, 2026)
         self.assertEqual(value.second, 45)
+
+    def test_field_leaves_an_already_utc_datetime_alone(self):
+        """Views bind these forms with model values to render them; those are
+        already UTC and must not be shifted a second time."""
+        stored = datetime.datetime(2026, 1, 15, 20, 30)
+        self.assertEqual(self.field.clean(stored), stored)
 
     def test_field_accepts_empty_value_when_not_required(self):
         """Test that field accepts empty value when not required"""
@@ -2885,6 +2916,146 @@ class DateTimeLocalFieldTests(TestCase):
         """Test that field has correct input formats defined"""
         self.assertIn('%Y-%m-%dT%H:%M', self.field.input_formats)
         self.assertIn('%Y-%m-%dT%H:%M:%S', self.field.input_formats)
+
+
+# Costa Rica is UTC-6 all year, so these expectations do not move with
+# daylight saving.
+@override_settings(ELECTION_TIME_ZONE='America/Costa_Rica')
+class ElectionTimeZoneTests(TestCase):
+  """
+  Every clock in Helios has to tell the same time.
+
+  Stored values are naive UTC; what a voter or an administrator reads is that
+  value on the election's own clock, the one whoever scheduled the election
+  typed. The failure these guard against is the two drifting apart, so that a
+  ballot's cast time and the election's closing time disagree on screen.
+  """
+
+  def test_stored_clocks_agree(self):
+    """
+    auto_now_add fields go through Django's timezone.now(); the election
+    lifecycle fields go through datetime.utcnow(). Both are stored naive, so
+    they are only comparable while TIME_ZONE is UTC.
+    """
+    from django.utils import timezone
+
+    drift = abs((timezone.now() - datetime.datetime.utcnow()).total_seconds())
+    self.assertLess(drift, 5)
+
+  def test_auto_stamped_fields_land_on_the_same_clock_as_the_schedule(self):
+    """
+    created_at is stamped by Django (auto_now_add); frozen_at is stamped by
+    Helios with utcnow(). Both describe the same moment, so they must agree.
+    This is the skew voters reported: cast_at is stamped the same way as
+    created_at, and used to land hours away from the election's own times.
+    """
+    user = auth_models.User.objects.create(user_type='google', user_id='tz@example.com', name='TZ')
+    election, _ = models.Election.get_or_create(
+      short_name='tz-election', name='TZ Election', description='', admin=user)
+
+    election.frozen_at = datetime.datetime.utcnow()
+
+    self.assertLess(abs((election.created_at - election.frozen_at).total_seconds()), 5)
+
+  def test_filter_renders_on_the_election_clock(self):
+    from helios.templatetags.timezone_tags import election_time
+
+    rendered = election_time(datetime.datetime(2026, 9, 15, 0, 0))
+    self.assertIn('2026-09-14 18:00', rendered)
+    self.assertIn('CST', rendered)
+    self.assertNotIn('UTC', rendered)
+
+  def test_filter_handles_missing_and_unexpected_values(self):
+    from helios.templatetags.timezone_tags import election_time
+
+    self.assertEqual(election_time(None), '')
+    # anything that is not a date is escaped rather than trusted, since the
+    # filter's output is marked safe
+    self.assertEqual(election_time('<script>x</script>'),
+                     '&lt;script&gt;x&lt;/script&gt;')
+
+  def test_a_date_without_a_time_is_midnight(self):
+    from helios.templatetags.timezone_tags import election_time
+
+    self.assertIn('2026-09-14 18:00', election_time(datetime.date(2026, 9, 15)))
+
+  @override_settings(ELECTION_TIME_ZONE='Not/AZone')
+  def test_a_bad_zone_name_falls_back_to_utc(self):
+    """A typo in a deployment's environment should spoil the label, not the site."""
+    from helios.templatetags.timezone_tags import election_time
+
+    self.assertIn('2026-09-15 00:00', election_time(datetime.datetime(2026, 9, 15, 0, 0)))
+
+  def test_scheduled_close_is_shown_on_the_election_clock(self):
+    """The end-to-end version: what the election page tells a voter."""
+    user = auth_models.User.objects.create(user_type='google', user_id='tz2@example.com', name='TZ2')
+    election, _ = models.Election.get_or_create(
+      short_name='tz-display', name='TZ Display', description='', admin=user)
+    election.uuid = str(uuid.uuid4())
+    election.voting_ends_at = datetime.datetime(2026, 9, 16, 0, 0)
+    election.save()
+
+    response = self.client.get('/helios/elections/%s/view' % election.uuid)
+    self.assertContains(response, '2026-09-15 18:00 CST')
+
+
+class SiteDefaultLanguageTests(TestCase):
+  """
+  Voters were emailed in one language and then landed on a page in another.
+
+  Mail is rendered by the Celery worker, which has no request and so always
+  uses settings.LANGUAGE_CODE. The web side used to read Accept-Language
+  instead, so a Spanish email could lead to an English page.
+  """
+
+  @override_settings(LANGUAGE_CODE='es')
+  def test_browser_language_does_not_override_the_site_default(self):
+    response = self.client.get('/', HTTP_ACCEPT_LANGUAGE='en-US,en;q=0.9')
+    self.assertEqual(response.context['LANGUAGE_CODE'], 'es')
+
+  @override_settings(LANGUAGE_CODE='es')
+  def test_the_language_switcher_still_wins(self):
+    self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = 'en'
+    response = self.client.get('/')
+    self.assertEqual(response.context['LANGUAGE_CODE'], 'en')
+
+  @override_settings(LANGUAGE_CODE='es')
+  def test_an_unknown_cookie_value_falls_back_to_the_default(self):
+    self.client.cookies[settings.LANGUAGE_COOKIE_NAME] = 'de'
+    response = self.client.get('/')
+    self.assertEqual(response.context['LANGUAGE_CODE'], 'es')
+
+  @override_settings(LANGUAGE_CODE='es')
+  def test_mail_rendered_without_a_request_uses_the_site_default(self):
+    """
+    translation.deactivate() puts this thread in the state a Celery worker is
+    in: nothing activated, so Django falls back to settings.LANGUAGE_CODE.
+    """
+    from django.utils import translation
+    from helios.view_utils import render_template_raw
+
+    user = auth_models.User.objects.create(user_type='google', user_id='mail@example.com', name='Mail')
+    election, _ = models.Election.get_or_create(
+      short_name='lang-election', name='Lang Election', description='', admin=user)
+    voter = models.Voter.objects.create(
+      uuid=str(uuid.uuid4()), election=election,
+      voter_name='Ana', voter_email='ana@example.com',
+      voter_login_id='ana')
+
+    try:
+      translation.deactivate()
+      body = render_template_raw(None, 'email/vote_body.txt', {
+        'voter': voter,
+        'election': election,
+        'custom_message': '',
+        'election_vote_url': 'https://example.com/vote',
+      })
+    finally:
+      translation.activate(settings.LANGUAGE_CODE)
+
+    self.assertIn('Estimado/a Ana', body)
+    self.assertIn('Inicie sesión', body)
+    self.assertNotIn('Dear Ana', body)
 
 
 class PasswordResendTests(WebTest):
@@ -2930,6 +3101,20 @@ class PasswordResendTests(WebTest):
         self.assertStatusCode(response, 200)
         self.assertContains(response, 'Voter ID')
         self.assertContains(response, 'new single-use link')
+
+    def test_login_page_offers_the_way_back_in(self):
+        """A voter who has forgotten their password needs to find the resend
+        form from the login screen, not only from the cast-ballot screen."""
+        # a public election lets anyone straight in, so the login page only
+        # renders for a private one
+        self.election.private_p = True
+        self.election.save()
+
+        login_url = f'/helios/elections/{self.election.uuid}/password_voter_login'
+        response = self.client.get(login_url)
+        self.assertStatusCode(response, 200)
+        self.assertContains(response, 'Forgot your password?')
+        self.assertContains(response, self.get_resend_url())
 
     def test_post_valid_voter_shows_success_and_sends_email(self):
         """Test that POST with valid voter ID shows success message and sends email"""

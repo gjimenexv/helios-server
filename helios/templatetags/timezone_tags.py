@@ -2,40 +2,38 @@
 Template tags for timezone display in Helios
 """
 
-from django import template
-from django.utils.safestring import mark_safe
-from django.utils.html import escape
 import datetime
+
+from django import template
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
+
+from helios.timezone_utils import format_election_time
 
 register = template.Library()
 
 
-@register.filter(name='utc_time')
-def utc_time(value):
+@register.filter(name='election_time')
+def election_time(value):
   """
-  Marks a datetime value for automatic timezone conversion.
-  The JavaScript will convert this to show both UTC and local timezone.
+  Render a stored (naive UTC) datetime on the election's own clock.
+
+  Every viewer sees the same wall-clock time -- the one the administrator
+  scheduled -- rather than a per-browser conversion, so what an email, an
+  admin screen and a voter's screen say about the closing time always agree.
 
   Usage in templates:
-    {{ election.voting_starts_at|utc_time }}
+    {{ election.voting_starts_at|election_time }}
   """
   if value is None:
     return ''
 
-  # Only accept datetime objects to prevent XSS
-  # Note: datetime.datetime is a subclass of datetime.date, so check datetime first
-  if isinstance(value, datetime.datetime):
-    # Format datetime with time
-    formatted = value.strftime('%Y-%m-%d %H:%M')
-  elif isinstance(value, datetime.date):
-    # Format date only (no time component)
-    formatted = value.strftime('%Y-%m-%d 00:00')
-  else:
-    # Reject any other type and escape it
+  # Only accept date/datetime values; anything else is escaped rather than
+  # trusted, since these render into mark_safe output below.
+  # (datetime.datetime is a subclass of datetime.date, so datetime first.)
+  if not isinstance(value, (datetime.datetime, datetime.date)):
     return escape(str(value))
 
-  # Escape the formatted string to prevent XSS
-  escaped_formatted = escape(formatted)
+  formatted = escape(format_election_time(value))
 
-  # Return HTML with data attribute for JavaScript processing
-  return mark_safe(f'<span class="tz-timestamp" data-utc-time="{escaped_formatted}">{escaped_formatted} UTC</span>')
+  return mark_safe(f'<span class="tz-timestamp">{formatted}</span>')
