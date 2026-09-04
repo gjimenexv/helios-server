@@ -30,7 +30,7 @@
 {% for election in elections %}
 <p>
 <b>{{election.name}}</b> {% trans "by" %} <a href="mailto:{{election.admin.info.email}}">{{election.admin.pretty_name}}</a><br />
-{% trans "Deleted at:" %} {{election.deleted_at|utc_time}}<br />
+{% trans "Deleted at:" %} {{election.deleted_at|election_time}}<br />
 {% blocktrans with num_voters=election.num_voters num_cast_votes=election.num_cast_votes %}{{ num_voters }} voters / {{ num_cast_votes }} cast votes{% endblocktrans %}<br />
 <form method="post" action="{% url "stats@undelete-election" election.uuid %}" style="display:inline;" onsubmit="return confirm('Are you sure you want to restore this election? It will become visible to its administrators again.');">
 <input type="hidden" name="csrf_token" value="{{csrf_token}}" />

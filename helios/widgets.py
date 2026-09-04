@@ -10,7 +10,11 @@ from django.forms.utils import flatatt
 from time import strftime
 
 import re
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext as _
+
+from .timezone_utils import election_tz_label, utc_to_election
 
 __all__ = ('SelectTimeWidget', 'SplitSelectDateTimeWidget', 'DateTimeLocalWidget')
 
@@ -225,7 +229,6 @@ class DateTimeLocalWidget(Widget):
         css = {
             'all': ('helios/datetime-local.css', 'helios/timezone-display.css',)
         }
-        js = ('helios/timezone-display.js',)
 
     def __init__(self, attrs=None):
         super(DateTimeLocalWidget, self).__init__(attrs)
@@ -235,19 +238,31 @@ class DateTimeLocalWidget(Widget):
         self.attrs.setdefault('placeholder', 'YYYY-MM-DDTHH:MM')
 
     def render(self, name, value, attrs=None, renderer=None):
+        label_at = None
+
         if value is None:
             value = ''
         elif hasattr(value, 'strftime'):
-            # Convert datetime to the format expected by datetime-local input
-            # Format: YYYY-MM-DDTHH:MM
-            value = value.strftime('%Y-%m-%dT%H:%M')
+            # Values arriving as datetimes come from the database, so they are
+            # naive UTC; put them back on the election clock, which is what the
+            # administrator typed and what the field will read back. Values
+            # arriving as strings are a redisplayed submission, already on that
+            # clock, and are left alone.
+            label_at = value
+            value = utc_to_election(value).strftime('%Y-%m-%dT%H:%M')
 
         # Merge self.attrs with provided attrs and extra attributes
         final_attrs = {**self.attrs, **(attrs or {}), 'name': name, 'type': 'datetime-local'}
         if value != '':
             final_attrs['value'] = value
 
-        return mark_safe('<input%s />' % flatatt(final_attrs))
+        # Say which clock this is, so nobody has to guess whether they are
+        # typing UTC, their own time, or the election's.
+        note = escape(_('Times are in %(timezone)s, the election time zone.')
+                      % {'timezone': election_tz_label(label_at)})
+
+        return mark_safe('<input%s /><div class="tz-input-helper"><small>%s</small></div>'
+                         % (flatatt(final_attrs), note))
 
     def value_from_datadict(self, data, files, name):
         return data.get(name, None)

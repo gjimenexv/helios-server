@@ -64,15 +64,39 @@ DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # although not all choices may be available on all operating systems.
-# If running in a Windows environment this must be set to the same as your
-# system time zone.
-TIME_ZONE = 'America/Los_Angeles'
+#
+# This is the STORAGE zone, and it must stay UTC. Helios keeps naive
+# datetimes (USE_TZ = False), and it writes them two different ways: model
+# fields with auto_now_add use Django's timezone.now(), while the election
+# lifecycle fields are set with datetime.utcnow(). Those two agree only when
+# TIME_ZONE is UTC. With anything else -- this used to be
+# 'America/Los_Angeles' -- a ballot's cast_at lands hours away from the
+# election's own opening and closing times, and the two disagree on screen.
+#
+# The zone elections are *displayed and scheduled* in is ELECTION_TIME_ZONE
+# below. Change that one, never this one.
+TIME_ZONE = 'UTC'
 
 USE_TZ = False
 
+# Wall clock of the elections this installation runs. An administrator who
+# schedules a close for 18:00 means 18:00 here, and every voter sees that
+# same 18:00 regardless of where they are. See helios/timezone_utils.py.
+ELECTION_TIME_ZONE = get_from_env('ELECTION_TIME_ZONE', 'America/Costa_Rica')
+
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
-LANGUAGE_CODE = get_from_env('LANGUAGE_CODE', 'en')
+#
+# This is also the language of everything sent by the Celery worker (voter
+# credentials, reminders, tally notices): those render outside a request, so
+# no language is active and Django falls back to this value.
+LANGUAGE_CODE = get_from_env('LANGUAGE_CODE', 'es')
+
+# The test suite asserts on the English wording of pages and emails, so it
+# pins the language rather than following whatever this installation's default
+# happens to be. Same reasoning as get_from_env's TESTING short-circuit above.
+if TESTING:
+    LANGUAGE_CODE = 'en'
 
 SITE_ID = 1
 
@@ -186,7 +210,9 @@ MIDDLEWARE = [
     # 'django.middleware.csrf.CsrfViewMiddleware',
 
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.locale.LocaleMiddleware',
+    # Site default wins over the browser's Accept-Language header; only the
+    # language switcher (which sets the language cookie) overrides it.
+    'helios.locale_middleware.SiteDefaultLocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
 ]
