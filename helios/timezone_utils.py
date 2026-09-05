@@ -43,15 +43,33 @@ def election_tz():
 
 def election_tz_label(at=None):
   """
-  Short name of the election zone at a given moment, e.g. "CST".
+  The election zone at a given moment, as an offset from UTC: "UTC-6".
 
-  Takes the moment because zones with daylight saving change label through
-  the year; defaults to now.
+  Deliberately the offset rather than the abbreviation zoneinfo hands back
+  ("CST"). Those abbreviations are ambiguous -- CST is Costa Rica here, but
+  also China and, half the year, Chicago -- and they assume a reader who
+  knows which one is meant. An offset is the same fact without the guessing.
+
+  Takes the moment because zones with daylight saving shift through the
+  year; defaults to now.
   """
   moment = at or datetime.datetime.now(UTC)
   if moment.tzinfo is None:
     moment = moment.replace(tzinfo=UTC)
-  return moment.astimezone(election_tz()).tzname() or 'UTC'
+
+  offset = moment.astimezone(election_tz()).utcoffset() or datetime.timedelta(0)
+  total_minutes = int(offset.total_seconds()) // 60
+
+  if total_minutes == 0:
+    return 'UTC'
+
+  sign = '+' if total_minutes > 0 else '-'
+  hours, minutes = divmod(abs(total_minutes), 60)
+
+  # Most zones are whole hours; the rest (UTC+5:30, UTC-3:30) need the colon.
+  if minutes:
+    return 'UTC%s%d:%02d' % (sign, hours, minutes)
+  return 'UTC%s%d' % (sign, hours)
 
 
 def utc_to_election(value):

@@ -2790,7 +2790,7 @@ class DateTimeLocalWidgetTests(TestCase):
     def test_render_names_the_election_time_zone(self):
         """Test that the input says which clock it is on"""
         html = self.widget.render('test_field', datetime.datetime(2026, 1, 15, 14, 30))
-        self.assertIn('CST', html)
+        self.assertIn('UTC-6', html)
 
     def test_render_leaves_a_resubmitted_string_alone(self):
         """A redisplayed submission is already on the election clock"""
@@ -2961,9 +2961,17 @@ class ElectionTimeZoneTests(TestCase):
     from helios.templatetags.timezone_tags import election_time
 
     rendered = election_time(datetime.datetime(2026, 9, 15, 0, 0))
-    self.assertIn('2026-09-14 18:00', rendered)
-    self.assertIn('CST', rendered)
-    self.assertNotIn('UTC', rendered)
+    # the local time, labelled by offset rather than by an ambiguous
+    # abbreviation, and never the stored UTC value itself
+    self.assertIn('2026-09-14 18:00 UTC-6', rendered)
+    self.assertNotIn('2026-09-15 00:00', rendered)
+    self.assertNotIn('CST', rendered)
+
+  def test_zones_off_the_hour_keep_their_minutes(self):
+    from helios.timezone_utils import election_tz_label
+
+    with override_settings(ELECTION_TIME_ZONE='Asia/Kolkata'):
+      self.assertEqual(election_tz_label(), 'UTC+5:30')
 
   def test_filter_handles_missing_and_unexpected_values(self):
     from helios.templatetags.timezone_tags import election_time
@@ -2996,7 +3004,7 @@ class ElectionTimeZoneTests(TestCase):
     election.save()
 
     response = self.client.get('/helios/elections/%s/view' % election.uuid)
-    self.assertContains(response, '2026-09-15 18:00 CST')
+    self.assertContains(response, '2026-09-15 18:00 UTC-6')
 
 
 class SiteDefaultLanguageTests(TestCase):
