@@ -3149,6 +3149,20 @@ class PasswordResendTests(WebTest):
         self.voter.refresh_from_db()
         self.assertTrue(self.voter.check_password('the-voter-old-password'))
 
+    def test_email_comes_from_the_configured_sender(self):
+        """Notifications must carry this installation's own address, not
+        whatever the upstream default happened to be."""
+        self.client.get(self.get_resend_url())
+        self.client.post(self.get_resend_url(), {
+            'csrf_token': self.client.session.get('csrf_token', ''),
+            'voter_id': 'testvoter'
+        })
+
+        from_email = mail.outbox[-1].from_email
+        self.assertEqual(from_email, settings.SERVER_EMAIL)
+        self.assertIn(settings.DEFAULT_FROM_EMAIL, from_email)
+        self.assertNotIn('adida.net', from_email)
+
     def test_post_invalid_voter_still_shows_success_but_no_email(self):
         """Test that POST with invalid voter ID still shows success but sends no email"""
         self.client.get(self.get_resend_url())

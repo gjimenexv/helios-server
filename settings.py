@@ -278,9 +278,17 @@ MEDIA_ROOT = ROOT_PATH + "media/"
 VOTER_UPLOAD_REL_PATH = "voters/%Y/%m/%d"
 
 
-# Change your email settings
-DEFAULT_FROM_EMAIL = get_from_env('DEFAULT_FROM_EMAIL', 'ben@adida.net')
-DEFAULT_FROM_NAME = get_from_env('DEFAULT_FROM_NAME', 'Ben for Helios')
+# Who every notification comes from: voter credentials, reminders, tally
+# notices, trustee mail. Upstream shipped Helios's own author here, so an
+# installation that forgot to set DEFAULT_FROM_EMAIL sent mail claiming to be
+# from a stranger; the default below is this installation's own address.
+#
+# On a provider that binds the envelope to the authenticated account -- Gmail
+# does -- this address is only honoured if EMAIL_HOST_USER is that same
+# account, or an alias it has verified. Changing it here without changing the
+# SMTP credentials gets the From header silently rewritten back.
+DEFAULT_FROM_EMAIL = get_from_env('DEFAULT_FROM_EMAIL', 'ecs2026espacioseguro@gmail.com')
+DEFAULT_FROM_NAME = get_from_env('DEFAULT_FROM_NAME', 'Espacio Seguro ECS 2026')
 SERVER_EMAIL = '%s <%s>' % (DEFAULT_FROM_NAME, DEFAULT_FROM_EMAIL)
 
 LOGIN_URL = '/auth/'
