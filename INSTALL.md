@@ -67,3 +67,7 @@ To get Google Auth working:
 * In the developer console, enable the Google People API
 
 * Set the `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` configuration variables accordingly
+
+## Production deployment
+
+To run a real election on Google Cloud (install, backup, teardown), follow [docs/deploy-gcp.md](docs/deploy-gcp.md).
