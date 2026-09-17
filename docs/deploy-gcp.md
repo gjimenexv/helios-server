@@ -1,63 +1,67 @@
-# Deploying Helios on Google Cloud for an election
+# Instalar Helios en Google Cloud para una elección
 
-This is the procedure used to run the ECS 2026 election (August–September 2026).
-Follow it top to bottom and you will end up with the same setup: one small
-Google Compute Engine VM running the whole app with Docker Compose. When the
-election is over, take a backup and tear it down (sections 9 and 10).
+Este es el procedimiento que se usó en la elección ECS 2026 (agosto–septiembre
+de 2026). Si lo sigue de principio a fin, obtendrá la misma instalación: una
+máquina virtual pequeña de Google Compute Engine que ejecuta toda la aplicación
+con Docker Compose. Cuando termine la elección, haga una copia de seguridad y
+elimine la instalación (secciones 9 y 10).
 
-Plan on about an hour for a first install. Most of it is waiting for the VM to
-build the Docker image.
+Cuente con una hora para la primera instalación. La mayor parte es esperar a
+que la máquina construya la imagen de Docker.
 
-## What you end up with
+## Qué se obtiene
 
 ```
-                 Internet  ──  http://<VM external IP>/   (port 80)
+                 Internet  ──  http://<IP externa de la VM>/   (puerto 80)
                                    │
- GCE VM "helios-server"  (e2-micro, Ubuntu 24.04, 30 GB disk, 2 GB swap)
- └── /opt/app  (git checkout of this repo + .env)
+ VM de GCE "helios-server"  (e2-micro, Ubuntu 24.04, disco de 30 GB, 2 GB de swap)
+ └── /opt/app  (copia de este repositorio + .env)
      └── docker compose
-         ├── web     gunicorn, Django app          → host port 80
-         ├── worker  celery (emails, voter CSVs, tallies)
-         ├── db      postgres:16, data in volume app_pgdata
-         └── broker  redis:7 (in-memory only)
+         ├── web     gunicorn, aplicación Django     → puerto 80 del host
+         ├── worker  celery (correos, padrones CSV, escrutinios)
+         ├── db      postgres:16, datos en el volumen app_pgdata
+         └── broker  redis:7 (solo en memoria)
 ```
 
-The services come from `docker-compose.yml` and `Dockerfile` at the repo root.
-Nothing else is used: no Cloud SQL, no load balancer, no bucket.
+Los servicios salen de `docker-compose.yml` y `Dockerfile`, en la raíz del
+repositorio. No se usa nada más: ni Cloud SQL, ni balanceador de carga, ni
+buckets.
 
-**Cost:** one `e2-micro` with a 30 GB standard disk in `us-central1`,
-`us-west1` or `us-east1` falls within GCP's Always Free tier. The external IPv4
-address is billed at a few dollars a month. Delete everything when you're done
-(section 10) and the bill stops.
+**Costo:** una `e2-micro` con disco estándar de 30 GB en `us-central1`,
+`us-west1` o `us-east1` entra en el nivel Always Free de GCP. La dirección IPv4
+externa se cobra aparte, unos pocos dólares al mes. Si elimina todo al terminar
+(sección 10), el cobro se detiene.
 
-## 0. Before you start
+## 0. Antes de empezar
 
-You need:
+Necesita:
 
-- A Google account with billing enabled on Google Cloud.
-- The [`gcloud` CLI](https://cloud.google.com/sdk/docs/install), logged in:
-  `gcloud auth login`.
-- A **Gmail account to send election mail from**, with 2-Step Verification
-  turned on and an **App Password** created for it
-  (Google Account → Security → App passwords). Voters see this address, so use
-  the organization's account, not a personal one. Gmail allows roughly 500
-  messages a day, which covers a roll of a few hundred voters.
-- Your election's voter list as a CSV (you upload it later, in the web UI).
+- Una cuenta de Google con facturación habilitada en Google Cloud.
+- La [CLI `gcloud`](https://cloud.google.com/sdk/docs/install) con sesión
+  iniciada: `gcloud auth login`.
+- Una **cuenta de Gmail desde la que se enviarán los correos de la elección**,
+  con la verificación en dos pasos activada y una **contraseña de aplicación**
+  creada (Cuenta de Google → Seguridad → Contraseñas de aplicaciones). Los
+  votantes verán esta dirección, así que use la cuenta de la organización, no
+  una personal. Gmail permite unos 500 mensajes al día, suficiente para un
+  padrón de unos cientos de votantes.
+- El padrón de votantes de la elección en CSV (se sube después, desde la
+  interfaz web).
 
-## 1. Create the project
+## 1. Crear el proyecto
 
 ```bash
-PROJECT=helios-server-deploy        # any globally unique id
+PROJECT=helios-server-deploy        # cualquier id único a nivel global
 gcloud projects create $PROJECT --name="Helios Server"
 gcloud config set project $PROJECT
-# link billing: https://console.cloud.google.com/billing/linkedaccount?project=$PROJECT
+# vincular la facturación: https://console.cloud.google.com/billing/linkedaccount?project=$PROJECT
 gcloud services enable compute.googleapis.com
 ```
 
-If the project already exists from a previous election, just
-`gcloud config set project <id>` and carry on.
+Si el proyecto ya existe de una elección anterior, basta con
+`gcloud config set project <id>` y continuar.
 
-## 2. Create the VM and open the firewall
+## 2. Crear la VM y abrir el firewall
 
 ```bash
 gcloud compute instances create helios-server \
@@ -71,24 +75,26 @@ gcloud compute firewall-rules create allow-web \
   --network=default --direction=INGRESS \
   --allow=tcp:80,tcp:443,tcp:22 --source-ranges=0.0.0.0/0
 
-gcloud compute instances list      # note the EXTERNAL_IP
+gcloud compute instances list      # anote la EXTERNAL_IP
 ```
 
-The external IP is **ephemeral**: it survives reboots but can change if the VM
-is stopped and started again. Every link in voter emails is built from it, so
-don't stop the VM during an election. If you think you might need to, reserve a
-static address first (`gcloud compute addresses create ...`) and attach it.
+La IP externa es **efímera**: se mantiene al reiniciar, pero puede cambiar si la
+VM se detiene y se vuelve a encender. Todos los enlaces de los correos a los
+votantes se construyen con ella, así que no detenga la VM durante una elección.
+Si cree que podría necesitar hacerlo, reserve antes una dirección estática
+(`gcloud compute addresses create ...`) y asígnela a la VM.
 
-## 3. Prepare the server
+## 3. Preparar el servidor
 
 ```bash
 gcloud compute ssh helios-server --zone=us-central1-a
 ```
 
-Everything below runs **on the VM**.
+Todo lo que sigue se ejecuta **en la VM**.
 
-**Swap.** An e2-micro has 1 GB of RAM, which isn't enough to build the image and
-run Postgres at the same time. Without swap, the build or the tally gets killed.
+**Swap.** Una e2-micro tiene 1 GB de RAM, que no alcanza para construir la
+imagen y ejecutar Postgres a la vez. Sin swap, el sistema mata la construcción
+o el escrutinio.
 
 ```bash
 sudo fallocate -l 2G /swapfile
@@ -98,7 +104,7 @@ sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 ```
 
-**Docker** (official Docker apt repository, as in
+**Docker** (repositorio apt oficial de Docker, según
 https://docs.docker.com/engine/install/ubuntu/):
 
 ```bash
@@ -113,28 +119,27 @@ sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-**The code:**
+**El código:**
 
 ```bash
 sudo git clone https://github.com/gjimenexv/helios-server.git /opt/app
 ```
 
-`/opt/app` is owned by root, so every `git` and `docker` command below runs
-with `sudo`.
+`/opt/app` pertenece a root, por eso todos los comandos `git` y `docker` que
+siguen llevan `sudo`.
 
-## 4. Configure: `/opt/app/.env`
+## 4. Configurar: `/opt/app/.env`
 
-Generate the secrets first. Use hex: the database password goes inside a URL,
-and symbols would break it.
+Primero genere los secretos. Use hexadecimal: la contraseña de la base de datos
+va dentro de una URL y los símbolos la romperían.
 
 ```bash
 openssl rand -hex 32   # SECRET_KEY
 openssl rand -hex 32   # EMAIL_OPTOUT_SECRET
-openssl rand -hex 24   # POSTGRES_PASSWORD (use the same value in DATABASE_URL)
+openssl rand -hex 24   # POSTGRES_PASSWORD (el mismo valor va en DATABASE_URL)
 ```
 
-Create the file with `sudo nano /opt/app/.env`, replacing `<IP>` and every
-`<...>`:
+Cree el archivo con `sudo nano /opt/app/.env` y reemplace `<IP>` y cada `<...>`:
 
 ```ini
 DEBUG=0
@@ -145,7 +150,7 @@ ALLOWED_HOSTS=<IP>
 POSTGRES_DB=helios
 POSTGRES_USER=helios
 POSTGRES_PASSWORD=<hex>
-DATABASE_URL=postgres://helios:<same hex>@db:5432/helios
+DATABASE_URL=postgres://helios:<el mismo hex>@db:5432/helios
 DATABASE_SSL_REQUIRE=0
 
 CELERY_BROKER_URL=redis://broker:6379/0
@@ -158,12 +163,12 @@ EMAIL_USE_CONSOLE=0
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USE_TLS=1
-EMAIL_HOST_USER=<sender>@gmail.com
-EMAIL_HOST_PASSWORD=<16-character app password, no spaces>
-DEFAULT_FROM_EMAIL=<sender>@gmail.com
-DEFAULT_FROM_NAME=<Name voters see, e.g. Espacio Seguro ECS 2026>
+EMAIL_HOST_USER=<remitente>@gmail.com
+EMAIL_HOST_PASSWORD=<contraseña de aplicación de 16 caracteres, sin espacios>
+DEFAULT_FROM_EMAIL=<remitente>@gmail.com
+DEFAULT_FROM_NAME=<Nombre que ven los votantes, p. ej. Espacio Seguro ECS 2026>
 
-# Recommended (the 2026 install left these at their defaults):
+# Recomendado (la instalación de 2026 los dejó con su valor por defecto):
 AUTH_ENABLED_SYSTEMS=password
 ELECTION_TIME_ZONE=America/Costa_Rica
 ```
@@ -172,92 +177,95 @@ ELECTION_TIME_ZONE=America/Costa_Rica
 sudo chmod 600 /opt/app/.env
 ```
 
-Notes:
+Notas:
 
-- `DEBUG=0` is mandatory. With `DEBUG=1`, anyone can log in as anyone via the
-  development login.
-- `EMAIL_HOST_USER` and `DEFAULT_FROM_EMAIL` **must be the same Gmail
-  account**. Otherwise Gmail rewrites the sender.
-- `AUTH_ENABLED_SYSTEMS=password` hides the Google, Facebook and LDAP buttons,
-  which aren't configured anyway. Voters don't use these: they sign in with
-  their per-election voter credentials (see `docs/credenciales-de-votante.md`).
-- Other optional settings (`SITE_TITLE`, `WELCOME_MESSAGE`, `HELP_EMAIL_ADDRESS`,
-  `HELIOS_VOTER_TOKEN_EXPIRY_HOURS`, ...) are listed in `settings.py`; look for
-  `get_from_env`.
+- `DEBUG=0` es obligatorio. Con `DEBUG=1`, cualquiera puede entrar como
+  cualquier usuario mediante el inicio de sesión de desarrollo.
+- `EMAIL_HOST_USER` y `DEFAULT_FROM_EMAIL` **deben ser la misma cuenta de
+  Gmail**. Si no, Gmail reescribe el remitente.
+- `AUTH_ENABLED_SYSTEMS=password` oculta los botones de Google, Facebook y LDAP,
+  que de todos modos no están configurados. Los votantes no los usan: entran con
+  sus credenciales de votante de cada elección (ver
+  `docs/credenciales-de-votante.md`).
+- Los demás ajustes opcionales (`SITE_TITLE`, `WELCOME_MESSAGE`,
+  `HELP_EMAIL_ADDRESS`, `HELIOS_VOTER_TOKEN_EXPIRY_HOURS`, ...) están en
+  `settings.py`; busque `get_from_env`.
 
-## 5. Start it
+## 5. Arrancar
 
 ```bash
 cd /opt/app
-sudo docker compose up -d --build          # first build is slow on an e2-micro; let it finish
+sudo docker compose up -d --build          # la primera construcción es lenta en una e2-micro; déjela terminar
 sudo docker compose exec web python manage.py migrate
-sudo docker compose ps                      # all four services "Up"; db and broker "healthy"
+sudo docker compose ps                      # los cuatro servicios "Up"; db y broker "healthy"
 ```
 
-Create the administrator account, which is the one that creates elections:
+Cree la cuenta de administración, que es la que crea las elecciones:
 
 ```bash
 sudo docker compose exec web python manage.py shell -c \
-  "from helios_auth.auth_systems.password import create_user; create_user('admin', '<long password>', '<Admin name>')"
+  "from helios_auth.auth_systems.password import create_user; create_user('admin', '<contraseña larga>', '<Nombre del administrador>')"
 ```
 
-Log in at `http://<IP>/auth/password/login`.
+Inicie sesión en `http://<IP>/auth/password/login`.
 
-> The admin password is stored **in plain text** in the `helios_auth_user` table
-> (upstream Helios behavior). Use a password that isn't used anywhere else, and
-> treat database backups as secret.
+> La contraseña de administración se guarda **en texto plano** en la tabla
+> `helios_auth_user` (así funciona Helios original). Use una contraseña que no
+> se use en ningún otro sitio y trate las copias de seguridad como secretas.
 
-## 6. Smoke test before the real election
+## 6. Prueba antes de la elección real
 
-Do all of this with a **test election** and two or three voters whose inboxes
-you can read:
+Haga todo esto con una **elección de prueba** y dos o tres votantes cuyos
+correos pueda leer:
 
-1. `http://<IP>/` loads and `http://<IP>/static/helios/css/civic.css` returns 200.
-2. Create an election, add a question, and generate the trustee key
-   (keep the trustee's secret key file safe; you need it to decrypt).
-3. Upload a small voter CSV and confirm the worker processes it:
+1. `http://<IP>/` carga y `http://<IP>/static/helios/css/civic.css` responde 200.
+2. Cree una elección, agregue una pregunta y genere la clave del fiduciario
+   (guarde bien el archivo con la clave secreta del fiduciario: sin él no se
+   puede descifrar).
+3. Suba un padrón CSV pequeño y confirme que el worker lo procesa:
    `sudo docker compose logs --tail=50 worker`.
-4. Freeze the election and email the voters. Check that the mail arrives and
-   that the link in it works.
-5. Cast a vote, end voting, compute the tally, decrypt as trustee, release results.
+4. Congele la papeleta y envíe el correo a los votantes. Compruebe que el
+   correo llega y que su enlace funciona.
+5. Emita un voto, cierre la votación, calcule el escrutinio cifrado, descifre
+   como fiduciario y publique el resultado.
 
-Then delete the test election (or leave it; it's harmless) and set up the real one.
+Después borre la elección de prueba (o déjela; no molesta) y configure la real.
 
-## 7. During the election
+## 7. Durante la elección
 
-- **Logs:** `cd /opt/app && sudo docker compose logs -f --tail=100 web worker`
-- **Restart a stuck service:** `sudo docker compose restart worker`
-- **Take a backup before sending the voter emails and right after voting
-  closes** (section 9). It takes seconds.
-- Don't stop the VM (the IP could change, see section 2).
+- **Registros:** `cd /opt/app && sudo docker compose logs -f --tail=100 web worker`
+- **Reiniciar un servicio atascado:** `sudo docker compose restart worker`
+- **Haga una copia de seguridad antes de enviar los correos a los votantes y
+  justo después de cerrar la votación** (sección 9). Toma segundos.
+- No detenga la VM (la IP podría cambiar; ver sección 2).
 
-## 8. Deploying a code change
+## 8. Desplegar un cambio de código
 
-From your own machine, with the change merged to `master` on GitHub:
+Desde su propia computadora, con el cambio ya integrado en `master` en GitHub:
 
 ```bash
 gcloud compute ssh helios-server --zone=us-central1-a --command \
   "sudo git -C /opt/app pull --ff-only origin master && cd /opt/app && sudo docker compose up -d --build web worker"
 ```
 
-Or use `deploy-production.sh` at the repo root, which does the same with a dry
-run first and checks the site afterwards (it logs in with the SSH key that
-`gcloud compute ssh` created):
+O use `deploy-production.sh`, en la raíz del repositorio. Hace lo mismo, con un
+ensayo previo que no cambia nada, y al final comprueba que el sitio responde.
+Entra con la clave SSH que creó `gcloud compute ssh`:
 
 ```bash
-HOST=<IP> bash deploy-production.sh          # dry run
-HOST=<IP> bash deploy-production.sh --go     # deploy
+HOST=<IP> bash deploy-production.sh          # ensayo, no cambia nada
+HOST=<IP> bash deploy-production.sh --go     # desplegar
 ```
 
-If the change includes a migration, also run
-`sudo docker compose exec web python manage.py migrate`. Expect about 30 seconds
-of downtime. Tell voters to hard-reload (Cmd/Ctrl-Shift-R) if the booth looks
-wrong.
+Si el cambio incluye una migración, ejecute también
+`sudo docker compose exec web python manage.py migrate`. Cuente con unos 30
+segundos sin servicio. Si la cabina de votación se ve mal, pida a los votantes
+que recarguen sin caché (Cmd/Ctrl-Shift-R).
 
-## 9. Backup and restore
+## 9. Copia de seguridad y restauración
 
-**Backup:** run from your machine. It writes a compressed custom-format dump
-and a plain SQL copy, then downloads them:
+**Copia de seguridad:** se ejecuta desde su computadora. Genera un volcado
+comprimido en formato personalizado y una copia en SQL plano, y los descarga:
 
 ```bash
 DEST=~/helios-backups/$(date +%F); mkdir -p $DEST
@@ -270,12 +278,14 @@ gcloud compute scp --zone=us-central1-a \
 chmod 600 $DEST/*; (cd $DEST && shasum -a 256 * > SHA256SUMS)
 ```
 
-The backup contains every election, the voter roll (names and emails), the
-encrypted ballots, the tallies, and the admin password (plain text). Keep it
-somewhere private and keep a second copy. **Never commit it to git.**
+La copia contiene todas las elecciones, el padrón (nombres y correos), las
+papeletas cifradas, los escrutinios y la contraseña de administración (en texto
+plano). Guárdela en un lugar privado y mantenga una segunda copia. **Nunca la
+suba a git.**
 
-**Check that a backup restores** before you rely on it. Load it into a
-throwaway database and compare counts with the live site:
+**Compruebe que la copia se puede restaurar** antes de confiar en ella.
+Cárguela en una base de datos desechable y compare los conteos con el sitio en
+vivo:
 
 ```bash
 cd /opt/app; C=$(sudo docker compose ps -q db)
@@ -287,58 +297,62 @@ sudo docker compose exec -T db sh -c '
   dropdb -U $POSTGRES_USER restore_test'
 ```
 
-**Restore onto a new install:** do sections 1–4, then instead of section 5:
+**Restaurar en una instalación nueva:** siga las secciones 1–4 y, en lugar de
+la sección 5:
 
 ```bash
 cd /opt/app
-sudo docker compose up -d db                  # database only, empty
+sudo docker compose up -d db                  # solo la base de datos, vacía
 C=$(sudo docker compose ps -q db)
-sudo docker cp helios.dump $C:/tmp/helios.dump   # after gcloud compute scp-ing it to the VM
+sudo docker cp helios.dump $C:/tmp/helios.dump   # después de copiarla a la VM con gcloud compute scp
 sudo docker compose exec -T db sh -c 'pg_restore -U $POSTGRES_USER -d $POSTGRES_DB --no-owner /tmp/helios.dump'
 sudo docker compose up -d --build
-sudo docker compose exec web python manage.py migrate   # applies only migrations newer than the backup
+sudo docker compose exec web python manage.py migrate   # aplica solo las migraciones posteriores a la copia
 ```
 
-The restore doesn't need the old `.env`. Voter passwords are stored as
-salted hashes and don't depend on `SECRET_KEY`, so a fresh `.env` works. If the
-IP changed, the links in voter emails already sent will point to the old
-address.
+La restauración no necesita el `.env` anterior. Las contraseñas de los votantes
+se guardan como hashes con sal y no dependen de `SECRET_KEY`, así que un `.env`
+nuevo funciona. Si la IP cambió, los enlaces de los correos ya enviados
+apuntarán a la dirección vieja.
 
-## 10. Teardown after the election
+## 10. Eliminar la instalación después de la elección
 
-1. Make sure results are **released** in the UI (or at least tallied and
-   decrypted) and that everyone who needs the result page has seen it.
-2. Take a final backup (section 9) and verify it restores.
-3. Delete the resources:
+1. Asegúrese de que el resultado esté **publicado** en la interfaz (o al menos
+   escrutado y descifrado) y de que todas las personas que necesitan la página
+   de resultados ya la vieron.
+2. Haga una copia de seguridad final (sección 9) y compruebe que se restaura.
+3. Elimine los recursos:
 
 ```bash
 gcloud compute instances delete helios-server --zone=us-central1-a --delete-disks=all
 gcloud compute firewall-rules delete allow-web
-gcloud compute instances list; gcloud compute disks list; gcloud compute addresses list   # all empty
+gcloud compute instances list; gcloud compute disks list; gcloud compute addresses list   # todo vacío
 ```
 
-This destroys the database and the `.env`. It can't be undone; the backup is
-all that remains. You can keep the (now empty) project for the next election, or
-delete it: `gcloud projects delete <id>`.
+Esto destruye la base de datos y el `.env`. No se puede deshacer: solo queda la
+copia de seguridad. Puede conservar el proyecto (ya vacío) para la próxima
+elección o borrarlo: `gcloud projects delete <id>`.
 
-If you later SSH to a new VM that got the same IP, remove the stale host key:
-`ssh-keygen -R <IP>`.
+Si más adelante entra por SSH a una VM nueva que recibió la misma IP, borre la
+clave de host vieja: `ssh-keygen -R <IP>`.
 
-## Known limitations of this setup
+## Limitaciones conocidas de esta instalación
 
-- **HTTP only, no TLS.** Ballots are encrypted in the browser before they're
-  sent, so vote secrecy doesn't depend on TLS. But voter passwords, the admin
-  password and session cookies cross the network in clear, and nothing proves
-  to voters that the booth code they received is genuine. For the next election,
-  consider pointing a domain at the VM and putting a TLS reverse proxy (such as
-  Caddy) in front of `web`. Then set `SSL=1` and change `URL_HOST`,
-  `SECURE_URL_HOST` and `ALLOWED_HOSTS` to the `https://` domain.
-- **One small VM, no redundancy.** Fine for a roll of a few hundred voters. For
-  thousands, use a bigger machine type.
-- The Gmail sending limit (about 500/day) caps how many voters you can email per day.
+- **Solo HTTP, sin TLS.** Las papeletas se cifran en el navegador antes de
+  enviarse, así que el secreto del voto no depende de TLS. Pero las contraseñas
+  de los votantes, la de administración y las cookies de sesión viajan sin
+  cifrar, y nada le garantiza al votante que el código de la cabina que recibió
+  es el auténtico. Para la próxima elección, considere apuntar un dominio a la
+  VM y poner delante de `web` un proxy inverso con TLS (por ejemplo, Caddy).
+  Luego ponga `SSL=1` y cambie `URL_HOST`, `SECURE_URL_HOST` y `ALLOWED_HOSTS`
+  al dominio `https://`.
+- **Una sola VM pequeña, sin redundancia.** Suficiente para un padrón de unos
+  cientos de votantes. Para miles, use un tipo de máquina más grande.
+- El límite de envío de Gmail (unos 500 al día) limita a cuántos votantes se
+  puede escribir por día.
 
-## History
+## Historial
 
-| Election | Installed | Torn down | Backup |
+| Elección | Instalada | Eliminada | Copia de seguridad |
 |---|---|---|---|
-| ECS 2026 (`Elecciones2026`, 104 voters, 70 ballots) | 2026-08-14 | 2026-09-16 | Held privately by the repo owner (`pg_dump` custom + SQL, verified by test restore) |
+| ECS 2026 (`Elecciones2026`, 104 votantes, 70 papeletas) | 2026-08-14 | 2026-09-16 | En poder del dueño del repositorio (`pg_dump` personalizado + SQL, verificada con una restauración de prueba) |

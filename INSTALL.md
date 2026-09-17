@@ -70,4 +70,4 @@ To get Google Auth working:
 
 ## Production deployment
 
-To run a real election on Google Cloud (install, backup, teardown), follow [docs/deploy-gcp.md](docs/deploy-gcp.md).
+To run a real election on Google Cloud (install, backup, teardown), follow [docs/deploy-gcp.md](docs/deploy-gcp.md) (in Spanish).
